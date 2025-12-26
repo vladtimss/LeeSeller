@@ -24,21 +24,19 @@ async function runWBFeature(feature: Feature, store: WBStoreIdentifier): Promise
 
 /**
  * Запускает фичу для указанного маркетплейса
- * Роутит выполнение в зависимости от маркетплейса (WB, Ozon и т.д.)
+ * Роутит выполнение в зависимости от маркетплейса (WB, Ozon)
  * @param marketplace - Маркетплейс из enum (Marketplace.WB или Marketplace.OZON)
  * @param feature - Тип фичи из enum
  * @param store - Идентификатор магазина
  * @throws Error если маркетплейс не реализован или фича не найдена
  */
 async function runFeature(marketplace: Marketplace, feature: Feature, store: WBStoreIdentifier): Promise<void> {
-    switch (marketplace) {
-        case Marketplace.WB:
-            await runWBFeature(feature, store);
-            break;
-        case Marketplace.OZON:
-            throw new Error('Ozon пока не реализован');
-        default:
-            throw new Error(`Неизвестный маркетплейс: ${marketplace}`);
+    if (marketplace === Marketplace.WB) {
+        await runWBFeature(feature, store);
+    } else if (marketplace === Marketplace.OZON) {
+        throw new Error('Ozon пока не реализован');
+    } else {
+        throw new Error(`Неизвестный маркетплейс: ${marketplace}`);
     }
 }
 
