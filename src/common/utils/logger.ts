@@ -6,7 +6,6 @@ const colors = {
     bright: '\x1b[1m',
     red: '\x1b[31m',
     green: '\x1b[32m',
-    yellow: '\x1b[33m',
     cyan: '\x1b[36m',
 };
 
@@ -35,6 +34,4 @@ export const logger = {
     error: (message: string): void => {
         console.log(`${colors.red}${colors.bright}${message}${colors.reset}`);
     },
-
 };
-

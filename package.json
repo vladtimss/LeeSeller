@@ -3,11 +3,11 @@
     "version": "1.0.0",
     "main": "index.js",
     "scripts": {
-        "executor": "ts-node executor/executor.ts",
-        "wb:ping:povar": "ts-node executor/executor.ts wb ping povar-na-rayone",
-        "wb:ping:leeshop": "ts-node executor/executor.ts wb ping leeshop",
-        "lint": "eslint src executor",
-        "format": "prettier --write \"src/**/*.ts\" \"executor/**/*.ts\""
+        "executor": "ts-node src/executor/executor.ts",
+        "wb:ping:povar": "ts-node src/executor/executor.ts wb ping povar-na-rayone",
+        "wb:ping:leeshop": "ts-node src/executor/executor.ts wb ping leeshop",
+        "lint": "eslint src src/executor",
+        "format": "prettier --write \"src/**/*.ts\" \"src/executor/**/*.ts\""
     },
     "keywords": [],
     "author": "",
@@ -32,4 +32,3 @@
         "node-fetch": "^3.3.2"
     }
 }
-
