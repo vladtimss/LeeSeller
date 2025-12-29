@@ -4,3 +4,4 @@
 export enum Feature {
     PING = 'ping',
 }
+

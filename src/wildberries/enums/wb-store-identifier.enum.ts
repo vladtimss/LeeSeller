@@ -5,3 +5,4 @@ export enum WBStoreIdentifier {
     POVAR_NA_RAYONE = 'povar-na-rayone',
     LEESHOP = 'leeshop',
 }
+
