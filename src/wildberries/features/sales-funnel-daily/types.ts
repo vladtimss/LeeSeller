@@ -196,6 +196,15 @@ export interface SalesFunnelProduct {
     };
 }
 
+/**
+ * Структура ответа от WB Analytics API
+ */
+export interface SalesFunnelProductsResponse {
+    data: {
+        products: SalesFunnelProduct[];
+    };
+}
+
 // ============================================================================
 // DTO для таблиц (плоские структуры для строк)
 // ============================================================================
