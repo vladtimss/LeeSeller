@@ -39,7 +39,7 @@ export function createStocksRow(
 /**
  * Преобразует данные воронки продаж WB в формат для CSV таблицы "Остатки"
  * @param products - Массив товаров из WB Analytics API
- * @param runDate - Дата выполнения функции (момент получения данных) в формате YYYY-MM-DD
+ * @param runDate - Дата выполнения функции в формате YYYY-MM-DD
  * @returns Массив строк для таблицы "Остатки"
  */
 export function adaptSalesFunnelToStocksCSV(
