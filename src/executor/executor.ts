@@ -2,6 +2,7 @@ import { logger } from '../common/utils/logger';
 import { Marketplace } from '../common/enums/marketplace.enum';
 import { Feature } from '../wildberries/enums/wb-feature.enum';
 import { pingWBStore } from '../wildberries/features/ping/ping';
+import { salesFunnelDailyReportWBStore } from '../wildberries/features/sales-funnel-daily/sales-funnel-daily-report';
 import { WBStoreIdentifier } from '../wildberries/enums/wb-store-identifier.enum';
 import { parseArgs } from './executor.helpers';
 
@@ -15,6 +16,10 @@ async function runWBFeature(feature: Feature, store: WBStoreIdentifier): Promise
     switch (feature) {
         case Feature.PING: {
             await pingWBStore(store);
+            break;
+        }
+        case Feature.SALES_FUNNEL_DAILY: {
+            await salesFunnelDailyReportWBStore(store);
             break;
         }
         default:

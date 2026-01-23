@@ -1,5 +1,8 @@
+import * as dotenv from 'dotenv';
 import { WBStoreIdentifier } from '../enums/wb-store-identifier.enum';
 import { ApiRequestConfig } from '../../common/utils/api-request.util';
+
+dotenv.config();
 
 /**
  * Базовый URL для Wildberries Seller Analytics API
@@ -21,6 +24,23 @@ export function getStoreEnvKey(storeIdentifier: WBStoreIdentifier): string {
         default:
             throw new Error(`Неизвестный идентификатор магазина: ${storeIdentifier}`);
     }
+}
+
+/**
+ * Извлекает токен WB из .env по идентификатору магазина
+ * @param storeIdentifier - Идентификатор магазина WB из enum
+ * @returns Токен авторизации для WB API
+ * @throws Error если токен не найден в .env
+ */
+export function getWBStoreToken(storeIdentifier: WBStoreIdentifier): string {
+    const envKey = getStoreEnvKey(storeIdentifier);
+    const token = process.env[envKey];
+
+    if (!token) {
+        throw new Error(`Не найден токен: ${envKey}`);
+    }
+
+    return token;
 }
 
 /**
