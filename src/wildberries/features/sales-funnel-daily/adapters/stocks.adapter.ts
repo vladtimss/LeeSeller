@@ -2,13 +2,14 @@ import {
     SalesFunnelProduct,
     WBStocksRow,
 } from '../types';
+import { stocksRowToArray } from './helpers';
 
 /**
  * Извлекает данные об остатках из одного товара (без runDate)
  * @param item - Товар из WB Analytics API
  * @returns Объект с извлеченными данными об остатках (без runDate)
  */
-export function extractStocksFields(item: SalesFunnelProduct): Omit<WBStocksRow, 'runDate'> {
+function extractStocksFields(item: SalesFunnelProduct): Omit<WBStocksRow, 'runDate'> {
     const { product } = item;
     const { stocks } = product;
 
@@ -26,7 +27,7 @@ export function extractStocksFields(item: SalesFunnelProduct): Omit<WBStocksRow,
  * @param runDate - Дата выполнения функции (момент получения данных) в формате YYYY-MM-DD
  * @returns Полный объект WBStocksRow
  */
-export function createStocksRow(
+function createStocksRow(
     extractedData: Omit<WBStocksRow, 'runDate'>,
     runDate: string
 ): WBStocksRow {
@@ -38,16 +39,18 @@ export function createStocksRow(
 
 /**
  * Преобразует данные воронки продаж WB в формат для CSV таблицы "Остатки"
+ * Возвращает массивы значений, готовые для записи в CSV без дополнительных преобразований
  * @param products - Массив товаров из WB Analytics API
  * @param runDate - Дата выполнения функции в формате YYYY-MM-DD
- * @returns Массив строк для таблицы "Остатки"
+ * @returns Массив массивов значений для CSV (каждая строка - массив значений)
  */
 export function adaptSalesFunnelToStocksCSV(
     products: SalesFunnelProduct[],
     runDate: string
-): WBStocksRow[] {
+): (string | number | null | undefined)[][] {
     return products.map((item) => {
         const extracted = extractStocksFields(item);
-        return createStocksRow(extracted, runDate);
+        const row = createStocksRow(extracted, runDate);
+        return stocksRowToArray(row);
     });
 }

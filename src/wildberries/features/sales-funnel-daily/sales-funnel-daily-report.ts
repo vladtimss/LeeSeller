@@ -1,5 +1,5 @@
 import { getWBStoreToken } from '../../helpers/wb.helpers';
-import { getYesterdayDate, getCurrentDate } from '../../../common/helpers/date-helpers';
+import { getYesterdayDate } from '../../../common/helpers/date-helpers';
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
 import { logger } from '../../../common/utils/logger';
 import { fetchWBData, prepareOutputDir, createKeyMetricsReport, createStocksReport } from './helpers';
@@ -37,8 +37,7 @@ export async function salesFunnelDailyReportWBStore(
     createKeyMetricsReport(products, yesterdayDate, outputDir, storeIdentifier);
 
     // 6. Создаем отчет по Stocks (перезаписывается полностью)
-    const runDate = getCurrentDate(); // Дата выполнения функции (для остатков)
-    createStocksReport(products, runDate, outputDir, storeIdentifier);
+    createStocksReport(products, outputDir, storeIdentifier);
 
     logger.success('✓ Выполнение завершено успешно');
 }

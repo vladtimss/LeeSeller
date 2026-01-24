@@ -4,7 +4,6 @@ import { getWBSalesFunnelProducts } from './wb-analytics-service';
 import { adaptSalesFunnelToKeyMetricsCSV } from './adapters/key-metrics.adapter';
 import { adaptSalesFunnelToStocksCSV } from './adapters/stocks.adapter';
 import { WB_KEY_METRICS_HEADERS, WB_STOCKS_HEADERS } from './adapters/csv-headers.const';
-import { salesRowToArray, stocksRowToArray } from './adapters/helpers';
 import { writeCsvFile, WriteMode } from '../../../integrations/google-sheets/google-sheets-client';
 import { SalesFunnelProductsRequest, SalesFunnelProduct } from './types';
 import { logger } from '../../../common/utils/logger';
@@ -83,11 +82,8 @@ export function createKeyMetricsReport(
 ): void {
     logger.info('📊 Создание отчета Key Metrics...');
 
-    // Адаптируем данные для CSV
-    const keyMetricsRows = adaptSalesFunnelToKeyMetricsCSV(products);
-
-    // Преобразуем объекты в массивы для CSV
-    const keyMetricsArrays = keyMetricsRows.map(salesRowToArray);
+    // Адаптируем данные для CSV (получаем массивы, готовые для записи)
+    const keyMetricsArrays = adaptSalesFunnelToKeyMetricsCSV(products);
 
     // Получаем короткое название магазина
     const storeShortName = getStoreShortName(storeIdentifier);
@@ -103,23 +99,21 @@ export function createKeyMetricsReport(
 /**
  * Создает отчет по Stocks (остатки)
  * @param products - Массив товаров из WB Analytics API
- * @param runDate - Дата выполнения функции в формате YYYY-MM-DD
  * @param outputDir - Директория для сохранения файла
  * @param storeIdentifier - Идентификатор магазина WB
  */
 export function createStocksReport(
     products: SalesFunnelProduct[],
-    runDate: string,
     outputDir: string,
     storeIdentifier: WBStoreIdentifier
 ): void {
     logger.info('📦 Создание отчета Stocks...');
 
-    // Адаптируем данные для CSV
-    const stocksRows = adaptSalesFunnelToStocksCSV(products, runDate);
+    // Получаем дату выполнения функции (момент получения данных)
+    const runDate = getCurrentDate();
 
-    // Преобразуем объекты в массивы для CSV
-    const stocksArrays = stocksRows.map(stocksRowToArray);
+    // Адаптируем данные для CSV (получаем массивы, готовые для записи)
+    const stocksArrays = adaptSalesFunnelToStocksCSV(products, runDate);
 
     // Получаем короткое название магазина
     const storeShortName = getStoreShortName(storeIdentifier);

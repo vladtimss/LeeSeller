@@ -2,6 +2,7 @@ import {
     SalesFunnelProduct,
     WBSalesRow,
 } from '../types';
+import { salesRowToArray } from './helpers';
 
 /**
  * Извлекает все поля для Key Metrics из одного товара
@@ -62,11 +63,15 @@ function extractKeyMetricsFields(item: SalesFunnelProduct): WBSalesRow {
 
 /**
  * Преобразует данные воронки продаж WB в формат для CSV таблицы "Статистика" (Key Metrics)
+ * Возвращает массивы значений, готовые для записи в CSV без дополнительных преобразований
  * @param products - Массив товаров из WB Analytics API
- * @returns Массив строк для таблицы "Статистика"
+ * @returns Массив массивов значений для CSV (каждая строка - массив значений)
  */
 export function adaptSalesFunnelToKeyMetricsCSV(
     products: SalesFunnelProduct[]
-): WBSalesRow[] {
-    return products.map(extractKeyMetricsFields);
+): (string | number | null | undefined)[][] {
+    return products.map((item) => {
+        const row = extractKeyMetricsFields(item);
+        return salesRowToArray(row);
+    });
 }
