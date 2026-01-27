@@ -1,4 +1,4 @@
-import { makeApiRequest } from '../../../common/utils/api-request.util';
+import { apiClientNode } from '../../../common/api/client.node';
 import { getWBAnalyticsConfig } from '../../helpers/wb.helpers';
 import {
     SalesFunnelProductsRequest,
@@ -21,9 +21,9 @@ export async function getWBSalesFunnelProducts(
     const config = getWBAnalyticsConfig(token);
     const path = '/api/analytics/v3/sales-funnel/products';
 
-    const response = await makeApiRequest<SalesFunnelProductsResponse>(config, path, {
-        method: 'POST',
-        body: JSON.stringify(request),
+    const response = await apiClientNode.request<SalesFunnelProductsResponse>(config, path, {
+        method: 'post',
+        body: request,
     });
 
     // Извлекаем массив товаров из структуры { data: { products: [...] } }

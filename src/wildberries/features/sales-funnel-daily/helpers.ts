@@ -1,10 +1,8 @@
-import * as path from 'path';
-import * as fs from 'fs';
 import { getWBSalesFunnelProducts } from './wb-analytics-service';
 import { adaptSalesFunnelToKeyMetricsCSV } from './adapters/key-metrics.adapter';
 import { adaptSalesFunnelToStocksCSV } from './adapters/stocks.adapter';
 import { WB_KEY_METRICS_HEADERS, WB_STOCKS_HEADERS } from './adapters/csv-headers.const';
-import { writeCsvFile, WriteMode } from '../../../integrations/google-sheets/google-sheets-client';
+import { sheetWriterNode } from '../../../common/sheets/writer.node';
 import { SalesFunnelProductsRequest, SalesFunnelProduct } from './types';
 import { logger } from '../../../common/utils/logger';
 import { getCurrentDate } from '../../../common/helpers/date-helpers';
@@ -51,33 +49,29 @@ export async function fetchWBData(token: string, date: string): Promise<SalesFun
 }
 
 /**
- * Подготавливает директорию для сохранения файлов
- * Создает директорию data/output, если её нет
- * @returns Путь к директории output
+ * Возвращает базовое имя для файла/листа отчёта Key Metrics
+ * (без идентификатора магазина, он добавляется sheetWriterNode через storeIdentifier)
  */
-export function prepareOutputDir(): string {
-    const projectRoot = process.cwd();
-    const outputDir = path.join(projectRoot, 'data', 'output');
+function getKeyMetricsSheetBaseName(date: string): string {
+    return `wb-key-metrics-${date}`;
+}
 
-    // Создаем директорию, если её нет
-    if (!fs.existsSync(outputDir)) {
-        fs.mkdirSync(outputDir, { recursive: true });
-    }
-
-    return outputDir;
+/**
+ * Возвращает базовое имя для файла/листа отчёта Stocks
+ */
+function getStocksSheetBaseName(runDate: string): string {
+    return `wb-stocks-${runDate}`;
 }
 
 /**
  * Создает отчет по Key Metrics (статистика продаж)
  * @param products - Массив товаров из WB Analytics API
  * @param date - Дата периода в формате YYYY-MM-DD
- * @param outputDir - Директория для сохранения файла
  * @param storeIdentifier - Идентификатор магазина WB
  */
 export function createKeyMetricsReport(
     products: SalesFunnelProduct[],
     date: string,
-    outputDir: string,
     storeIdentifier: WBStoreIdentifier
 ): void {
     logger.info('📊 Создание отчета Key Metrics...');
@@ -85,26 +79,28 @@ export function createKeyMetricsReport(
     // Адаптируем данные для CSV (получаем массивы, готовые для записи)
     const keyMetricsArrays = adaptSalesFunnelToKeyMetricsCSV(products);
 
-    // Получаем короткое название магазина
     const storeShortName = getStoreShortName(storeIdentifier);
 
-    // Определяем путь к файлу (с коротким названием магазина через точку)
-    const filePath = path.join(outputDir, `wb-key-metrics-${date}.${storeShortName}.csv`);
+    sheetWriterNode.write({
+        sheetName: getKeyMetricsSheetBaseName(date),
+        headers: WB_KEY_METRICS_HEADERS,
+        rows: keyMetricsArrays,
+        storeIdentifier: storeShortName,
+        mode: 'append',
+    });
 
-    // Записываем CSV файл (дописываем в конец, если файл существует)
-    writeCsvFile(filePath, WB_KEY_METRICS_HEADERS, keyMetricsArrays, WriteMode.APPEND);
-    logger.info(`✅ Key Metrics записаны: ${filePath} (${keyMetricsArrays.length} строк)`);
+    logger.info(
+        `✅ Key Metrics записаны (режим append) для магазина ${storeShortName}: ${keyMetricsArrays.length} строк`
+    );
 }
 
 /**
  * Создает отчет по Stocks (остатки)
  * @param products - Массив товаров из WB Analytics API
- * @param outputDir - Директория для сохранения файла
  * @param storeIdentifier - Идентификатор магазина WB
  */
 export function createStocksReport(
     products: SalesFunnelProduct[],
-    outputDir: string,
     storeIdentifier: WBStoreIdentifier
 ): void {
     logger.info('📦 Создание отчета Stocks...');
@@ -115,13 +111,17 @@ export function createStocksReport(
     // Адаптируем данные для CSV (получаем массивы, готовые для записи)
     const stocksArrays = adaptSalesFunnelToStocksCSV(products, runDate);
 
-    // Получаем короткое название магазина
     const storeShortName = getStoreShortName(storeIdentifier);
 
-    // Определяем путь к файлу (с коротким названием магазина через точку)
-    const filePath = path.join(outputDir, `wb-stocks-${runDate}.${storeShortName}.csv`);
+    sheetWriterNode.write({
+        sheetName: getStocksSheetBaseName(runDate),
+        headers: WB_STOCKS_HEADERS,
+        rows: stocksArrays,
+        storeIdentifier: storeShortName,
+        mode: 'overwrite',
+    });
 
-    // Записываем CSV файл (перезаписываем полностью)
-    writeCsvFile(filePath, WB_STOCKS_HEADERS, stocksArrays, WriteMode.OVERWRITE);
-    logger.info(`✅ Stocks записаны: ${filePath} (${stocksArrays.length} строк)`);
+    logger.info(
+        `✅ Stocks записаны (режим overwrite) для магазина ${storeShortName}: ${stocksArrays.length} строк`
+    );
 }

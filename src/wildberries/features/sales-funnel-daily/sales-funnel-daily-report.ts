@@ -2,7 +2,7 @@ import { getWBStoreToken } from '../../helpers/wb.helpers';
 import { getYesterdayDate } from '../../../common/helpers/date-helpers';
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
 import { logger } from '../../../common/utils/logger';
-import { fetchWBData, prepareOutputDir, createKeyMetricsReport, createStocksReport } from './helpers';
+import { fetchWBData, createKeyMetricsReport, createStocksReport } from './helpers';
 
 /**
  * Главная функция фичи Sales Funnel Daily
@@ -30,14 +30,11 @@ export async function salesFunnelDailyReportWBStore(
         return;
     }
 
-    // 4. Подготавливаем директорию для сохранения файлов
-    const outputDir = prepareOutputDir();
+    // 4. Создаем отчет по Key Metrics (дописывается в конец файла / листа)
+    createKeyMetricsReport(products, yesterdayDate, storeIdentifier);
 
-    // 5. Создаем отчет по Key Metrics (дописывается в конец файла)
-    createKeyMetricsReport(products, yesterdayDate, outputDir, storeIdentifier);
-
-    // 6. Создаем отчет по Stocks (перезаписывается полностью)
-    createStocksReport(products, outputDir, storeIdentifier);
+    // 5. Создаем отчет по Stocks (перезаписывается полностью)
+    createStocksReport(products, storeIdentifier);
 
     logger.success('✓ Выполнение завершено успешно');
 }

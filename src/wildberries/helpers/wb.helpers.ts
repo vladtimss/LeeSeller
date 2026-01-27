@@ -1,8 +1,6 @@
-import * as dotenv from 'dotenv';
 import { WBStoreIdentifier } from '../enums/wb-store-identifier.enum';
-import { ApiRequestConfig } from '../../common/utils/api-request.util';
-
-dotenv.config();
+import type { ApiRequestConfig } from '../../common/api/client.interface';
+import { environmentConfigNode } from '../../common/config/config.node';
 
 /**
  * Базовый URL для Wildberries Seller Analytics API
@@ -34,7 +32,7 @@ export function getStoreEnvKey(storeIdentifier: WBStoreIdentifier): string {
  */
 export function getWBStoreToken(storeIdentifier: WBStoreIdentifier): string {
     const envKey = getStoreEnvKey(storeIdentifier);
-    const token = process.env[envKey];
+    const token = environmentConfigNode.getEnv(envKey);
 
     if (!token) {
         throw new Error(`Не найден токен: ${envKey}`);
