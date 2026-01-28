@@ -80,6 +80,15 @@ const formatDateToIso = (date) => {
 };
 
 /**
+ * Форматирует дату из формата YYYY-MM-DD в вид DD.MM.YYYY для Google Sheets.
+ * Пример: '2026-01-26' → '26.01.2026'.
+ */
+const formatDateForDisplay = (dateStr) => {
+    const [year, month, day] = dateStr.split('-');
+    return `${day}.${month}.${year}`;
+};
+
+/**
  * Достаёт Script Property или кидает ошибку.
  */
 const getScriptPropertyOrThrow = (propertyKey) => {
@@ -210,44 +219,43 @@ const getWBSalesFunnelProductsGas = (token, request) => {
 
 /**
  * Заголовки для листа funnel (Key Metrics).
+ * Порядок колонок жёстко согласован с бизнес-таблицей в Google Sheets.
  */
 const WB_KEY_METRICS_HEADERS_GAS = [
-    'Магазин',
-    'Артикул WB',
-    'Название карточки товара',
+    'Год',
+    'Мес',
+    'Неделя',
     'Артикул продавца',
+    'Артикул WB',
+    'Название',
+    'Предмет',
     'Бренд',
-    'Оценка карточки',
-    'Оценка пользователей',
+    'Ярлыки',
+    'Удаленный товар',
+    'Рейтинг карточки',
+    'Рейтинг по отзывам',
     'Дата',
-    'Открытий карточки',
-    'Добавлений в корзину',
-    'Заказов',
-    'Сумма заказов',
-    'Выкупов',
-    'Сумма выкупов',
-    'Отмен',
-    'Сумма отмен',
-    'Средняя цена',
-    'Среднее количество заказов в день',
-    'Процент доли заказов',
-    'Добавлений в избранное',
-    'Время до готовности (дни)',
-    'Время до готовности (часы)',
-    'Время до готовности (минуты)',
-    'Процент локализации',
-    'WB Club: Заказов',
-    'WB Club: Сумма заказов',
-    'WB Club: Сумма выкупов',
-    'WB Club: Выкупов',
-    'WB Club: Сумма отмен',
-    'WB Club: Отмен',
-    'WB Club: Средняя цена',
-    'WB Club: Процент выкупа',
-    'WB Club: Среднее количество заказов в день',
-    'Конверсия: Добавлений в корзину (%)',
-    'Конверсия: Из корзины в заказ (%)',
-    'Конверсия: Выкупа (%)',
+    'Показы',
+    'CTR',
+    'Переходы в карточку',
+    'Положили в корзину',
+    'Добавили в отложенные',
+    'Заказали, шт',
+    'Заказали ВБ клуб, шт',
+    'Выкупили, шт',
+    'Выкупили ВБ клуб, шт',
+    'Отменили, шт',
+    'Отменили ВБ клуб, шт',
+    'Конверсия в корзину, %',
+    'Конверсия в заказ, %',
+    'Процент выкупа',
+    'Процент выкупа ВБ клуб',
+    'Заказали на сумму, ₽',
+    'Заказали на сумму ВБ клуб, ₽',
+    'Выкупили на сумму, ₽',
+    'Выкупили на сумму ВБ клуб, ₽',
+    'Отменили на сумму, ₽',
+    'Отменили на сумму ВБ клуб, ₽',
 ];
 
 /**
@@ -263,46 +271,86 @@ const WB_STOCKS_HEADERS_GAS = [
 ];
 
 /**
- * Преобразует объект Key Metrics в массив для записи в таблицу.
+ * По дате (YYYY-MM-DD) считаем год, месяц и ISO-неделю (неделя начинается с понедельника).
  */
-const salesRowToArrayGas = (row) => [
-    row.storeName,
-    row.nmId,
-    row.title,
-    row.vendorCode,
-    row.brandName,
-    row.productRating,
-    row.feedbackRating,
-    row.date,
-    row.openCount,
-    row.cartCount,
-    row.orderCount,
-    row.orderSum,
-    row.buyoutCount,
-    row.buyoutSum,
-    row.cancelCount,
-    row.cancelSum,
-    row.avgPrice,
-    row.avgOrdersCountPerDay,
-    row.shareOrderPercent,
-    row.addToWishlist,
-    row.timeToReadyDays,
-    row.timeToReadyHours,
-    row.timeToReadyMins,
-    row.localizationPercent,
-    row.wbClubOrderCount,
-    row.wbClubOrderSum,
-    row.wbClubBuyoutSum,
-    row.wbClubBuyoutCount,
-    row.wbClubCancelSum,
-    row.wbClubCancelCount,
-    row.wbClubAvgPrice,
-    row.wbClubBuyoutPercent,
-    row.wbClubAvgOrderCountPerDay,
-    row.addToCartPercent,
-    row.cartToOrderPercent,
-    row.buyoutPercent,
-];
+const getYearMonthWeekFromDate = (dateStr) => {
+    const [yearStr, monthStr, dayStr] = dateStr.split('-');
+    const date = new Date(Date.UTC(Number(yearStr), Number(monthStr) - 1, Number(dayStr)));
+
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + 1; // 1-12
+
+    // ISO-неделя: сдвигаем дату к четвергу текущей недели и считаем недели от начала года
+    const dayOfWeek = date.getUTCDay() || 7; // 1 (Mon) - 7 (Sun)
+    const thursday = new Date(date);
+    thursday.setUTCDate(date.getUTCDate() + 4 - dayOfWeek);
+
+    const yearStart = new Date(Date.UTC(thursday.getUTCFullYear(), 0, 1));
+    const week = Math.ceil(((thursday - yearStart) / 86400000 + 1) / 7);
+
+    return { year, month, week };
+};
+
+/**
+ * Преобразует объект Key Metrics в массив для записи в таблицу
+ * строго в порядке WB_KEY_METRICS_HEADERS_GAS.
+ */
+const salesRowToArrayGas = (row) => {
+    // Внутренне работаем с ISO-датой, чтобы корректно посчитать неделю,
+    // а в таблицу кладём человекочитаемый формат DD.MM.YYYY.
+    const isoDate = row.date;
+    const { year, month, week } = getYearMonthWeekFromDate(isoDate);
+    const displayDate = formatDateForDisplay(isoDate);
+
+    return [
+        // 1–3. Год / Месяц / Неделя
+        year,
+        month,
+        week,
+        // 4–6. Артикул продавца / Артикул WB / Название
+        row.vendorCode,
+        row.nmId,
+        row.title,
+        // 7–9. Предмет / Бренд / Ярлыки
+        row.subjectName,
+        row.brandName,
+        row.tags,
+        // 10. Удаленный товар — информации нет, оставляем пустым
+        '',
+        // 11–12. Рейтинги
+        row.productRating,
+        row.feedbackRating,
+        // 13. Дата (как в API)
+        displayDate,
+        // 14–15. Показы / CTR — API их не даёт, оставляем пустыми
+        '',
+        '',
+        // 16–18. Переходы, корзина, отложенные
+        row.openCount,
+        row.cartCount,
+        row.addToWishlist,
+        // 19–24. Заказы / выкупы / отмены по обычным и ВБ-клубу
+        row.orderCount,
+        row.wbClubOrderCount,
+        row.buyoutCount,
+        row.wbClubBuyoutCount,
+        row.cancelCount,
+        row.wbClubCancelCount,
+        // 25–27. Конверсии
+        row.addToCartPercent,
+        row.cartToOrderPercent,
+        row.buyoutPercent,
+        // 28. Процент выкупа ВБ клуб
+        row.wbClubBuyoutPercent,
+        // 29–34. Суммы заказов/выкупов/отмен
+        row.orderSum,
+        row.wbClubOrderSum,
+        row.buyoutSum,
+        row.wbClubBuyoutSum,
+        row.cancelSum,
+        row.wbClubCancelSum,
+    ];
+};
 
 /**
  * Преобразует объект Stocks в массив для записи в таблицу.
@@ -319,17 +367,20 @@ const stocksRowToArrayGas = (row) => [
 /**
  * Извлекает Key Metrics из одного товара.
  */
-const extractKeyMetricsFieldsGas = (item, storeName) => {
+const extractKeyMetricsFieldsGas = (item) => {
     const { product, statistic } = item;
     const selected = statistic.selected;
     const { timeToReady, wbClub, conversions } = selected;
 
     return {
-        storeName,
         nmId: product.nmId,
         title: product.title,
         vendorCode: product.vendorCode,
         brandName: product.brandName,
+        // Дополнительные поля карточки, которые используем для отчёта в Google Sheets
+        subjectName: product.subjectName,
+        // Ярлыки приводим к строке (массив в API склеиваем через запятую)
+        tags: Array.isArray(product.tags) ? product.tags.join(', ') : '',
         productRating: product.productRating,
         feedbackRating: product.feedbackRating,
         date: selected.period.start,
@@ -367,9 +418,9 @@ const extractKeyMetricsFieldsGas = (item, storeName) => {
 /**
  * Преобразует массив товаров в массивы строк для листа funnel.
  */
-const adaptSalesFunnelToKeyMetricsArraysGas = (products, storeName) =>
+const adaptSalesFunnelToKeyMetricsArraysGas = (products) =>
     products.map((item) => {
-        const row = extractKeyMetricsFieldsGas(item, storeName);
+        const row = extractKeyMetricsFieldsGas(item);
         return salesRowToArrayGas(row);
     });
 
@@ -536,7 +587,6 @@ const salesFunnelDailyReportWBStoreGas = (storeIdentifierRaw) => {
     Logger.log('🚀 Запуск Sales Funnel Daily (GAS)');
 
     const storeIdentifier = parseStoreIdentifierGas(storeIdentifierRaw);
-    const storeDisplayName = getStoreDisplayNameForGas(storeIdentifier);
     const token = getWBStoreTokenFromScriptProperties(storeIdentifier);
 
     const yesterdayDate = getYesterdayDateIso();
@@ -557,24 +607,23 @@ const salesFunnelDailyReportWBStoreGas = (storeIdentifierRaw) => {
         return;
     }
 
-    const keyMetricsArrays = adaptSalesFunnelToKeyMetricsArraysGas(products, storeDisplayName);
-    const runDate = getCurrentDateIso();
-    const stocksArrays = adaptSalesFunnelToStocksArraysGas(products, runDate, storeDisplayName);
+    // Формируем строки для отчёта funnel (Key Metrics) за вчерашний день
+    const keyMetricsArrays = adaptSalesFunnelToKeyMetricsArraysGas(products);
 
     const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
 
-    // Листы строго с именами funnel и stock
-    const keyMetricsSheetName = 'funnel';
-    const stocksSheetName = 'stock';
+    // Для каждого магазина — свой лист с данными:
+    // - POVAR_NA_RAYONE → wb-funnel-povar-data
+    // - LEESHOP         → wb-funnel-leeshop-data
+    const storeShortName = getStoreShortNameForGas(storeIdentifier);
+    const keyMetricsSheetName = `wb-funnel-${storeShortName}-data`;
 
     const keyMetricsSheet = getOrCreateSheetByName(spreadsheet, keyMetricsSheetName);
-    const stocksSheet = getOrCreateSheetByName(spreadsheet, stocksSheetName);
 
     Logger.log('📊 Запись Key Metrics в лист: %s', keyMetricsSheet.getName());
     appendRowsToSheet(keyMetricsSheet, WB_KEY_METRICS_HEADERS_GAS, keyMetricsArrays);
 
-    Logger.log('📦 Запись Stocks (overwrite) в лист: %s', stocksSheet.getName());
-    overwriteStoreRowsInStockSheet(stocksSheet, WB_STOCKS_HEADERS_GAS, stocksArrays, storeDisplayName);
+    // Логику формирования и записи stock временно отключаем — она не нужна в этой версии отчёта.
 
     Logger.log('✓ Выполнение завершено успешно (GAS)');
 };
