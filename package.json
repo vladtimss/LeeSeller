@@ -8,6 +8,7 @@
         "wb:ping:leeshop": "ts-node src/executor/executor.ts wb ping leeshop",
         "wb:sales-funnel-daily:povar": "ts-node src/executor/executor.ts wb sales-funnel-daily povar-na-rayone",
         "wb:sales-funnel-daily:leeshop": "ts-node src/executor/executor.ts wb sales-funnel-daily leeshop",
+        "wb:sales-funnel-daily:build:gas": "tsc -p tsconfig.gas.json",
         "lint": "eslint src src/executor",
         "format": "prettier --write \"src/**/*.ts\" \"src/executor/**/*.ts\""
     },

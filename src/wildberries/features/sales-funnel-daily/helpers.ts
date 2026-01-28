@@ -27,6 +27,23 @@ function getStoreShortName(storeIdentifier: WBStoreIdentifier): string {
 }
 
 /**
+ * Преобразует идентификатор магазина в человекочитаемое имя для отчётов
+ * (первая колонка "Магазин" в CSV/таблицах).
+ * @param storeIdentifier - Идентификатор магазина из enum
+ * @returns Название магазина для отображения (например, 'Povar', 'LeeShop')
+ */
+function getStoreDisplayName(storeIdentifier: WBStoreIdentifier): string {
+    switch (storeIdentifier) {
+        case WBStoreIdentifier.POVAR_NA_RAYONE:
+            return 'Povar';
+        case WBStoreIdentifier.LEESHOP:
+            return 'LeeShop';
+        default:
+            return storeIdentifier;
+    }
+}
+
+/**
  * Получает данные из WB Analytics API за указанный период
  * @param token - Токен авторизации
  * @param date - Дата периода в формате YYYY-MM-DD
@@ -83,9 +100,10 @@ export function createKeyMetricsReport(
     logger.info('📊 Создание отчета Key Metrics...');
 
     // Адаптируем данные для CSV (получаем массивы, готовые для записи)
-    const keyMetricsArrays = adaptSalesFunnelToKeyMetricsCSV(products);
+    const storeDisplayName = getStoreDisplayName(storeIdentifier);
+    const keyMetricsArrays = adaptSalesFunnelToKeyMetricsCSV(products, storeDisplayName);
 
-    // Получаем короткое название магазина
+    // Получаем короткое название магазина для имени файла
     const storeShortName = getStoreShortName(storeIdentifier);
 
     // Определяем путь к файлу (с коротким названием магазина через точку)
@@ -113,9 +131,10 @@ export function createStocksReport(
     const runDate = getCurrentDate();
 
     // Адаптируем данные для CSV (получаем массивы, готовые для записи)
-    const stocksArrays = adaptSalesFunnelToStocksCSV(products, runDate);
+    const storeDisplayName = getStoreDisplayName(storeIdentifier);
+    const stocksArrays = adaptSalesFunnelToStocksCSV(products, runDate, storeDisplayName);
 
-    // Получаем короткое название магазина
+    // Получаем короткое название магазина для имени файла
     const storeShortName = getStoreShortName(storeIdentifier);
 
     // Определяем путь к файлу (с коротким названием магазина через точку)

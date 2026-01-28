@@ -9,14 +9,17 @@ import { salesRowToArray } from './helpers';
  * Извлекает только statistic.selected (без past и comparison)
  * Распаковывает все вложенные объекты в плоские поля
  * @param item - Товар из WB Analytics API
+ * @param storeName - Человекочитаемое название магазина (например, 'Povar', 'LeeShop')
  * @returns Объект с извлеченными полями для таблицы "Статистика"
  */
-function extractKeyMetricsFields(item: SalesFunnelProduct): WBSalesRow {
+function extractKeyMetricsFields(item: SalesFunnelProduct, storeName: string): WBSalesRow {
     const { product, statistic } = item;
     const { selected } = statistic;
     const { timeToReady, wbClub, conversions } = selected;
 
     return {
+        // Магазин (добавляем отдельной колонкой)
+        storeName,
         // Базовые поля товара
         nmId: product.nmId,
         title: product.title,
@@ -65,13 +68,15 @@ function extractKeyMetricsFields(item: SalesFunnelProduct): WBSalesRow {
  * Преобразует данные воронки продаж WB в формат для CSV таблицы "Статистика" (Key Metrics)
  * Возвращает массивы значений, готовые для записи в CSV без дополнительных преобразований
  * @param products - Массив товаров из WB Analytics API
+ * @param storeName - Человекочитаемое название магазина (например, 'Povar', 'LeeShop')
  * @returns Массив массивов значений для CSV (каждая строка - массив значений)
  */
 export function adaptSalesFunnelToKeyMetricsCSV(
-    products: SalesFunnelProduct[]
+    products: SalesFunnelProduct[],
+    storeName: string
 ): (string | number | null | undefined)[][] {
     return products.map((item) => {
-        const row = extractKeyMetricsFields(item);
+        const row = extractKeyMetricsFields(item, storeName);
         return salesRowToArray(row);
     });
 }

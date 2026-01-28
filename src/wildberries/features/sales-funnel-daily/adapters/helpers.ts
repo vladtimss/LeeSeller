@@ -7,6 +7,7 @@ import { WBSalesRow, WBStocksRow } from '../types';
  */
 export function salesRowToArray(row: WBSalesRow): (string | number | null | undefined)[] {
     return [
+        row.storeName,
         row.nmId,
         row.title,
         row.vendorCode,
@@ -51,5 +52,5 @@ export function salesRowToArray(row: WBSalesRow): (string | number | null | unde
  * @returns Массив значений
  */
 export function stocksRowToArray(row: WBStocksRow): (string | number | null | undefined)[] {
-    return [row.runDate, row.vendorCode, row.stocksWb, row.stocksMp, row.stocksBalanceSum];
+    return [row.storeName, row.runDate, row.vendorCode, row.stocksWb, row.stocksMp, row.stocksBalanceSum];
 }

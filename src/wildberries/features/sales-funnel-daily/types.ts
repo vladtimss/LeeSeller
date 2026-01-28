@@ -214,6 +214,8 @@ export interface SalesFunnelProductsResponse {
  * Все поля из statistic.selected распакованы в плоскую структуру
  */
 export interface WBSalesRow {
+    /** Человекочитаемое название магазина (например, 'Povar', 'LeeShop') */
+    storeName: string;
     // Базовые поля товара
     nmId: number;
     title: string;
@@ -261,6 +263,8 @@ export interface WBSalesRow {
  * Строка для листа "Остатки"
  */
 export interface WBStocksRow {
+    /** Человекочитаемое название магазина (например, 'Povar', 'LeeShop') */
+    storeName: string;
     /** Дата выполнения функции (момент получения данных) */
     runDate: string;
     /** Артикул продавца */

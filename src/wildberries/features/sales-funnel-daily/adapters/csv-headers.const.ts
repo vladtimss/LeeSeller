@@ -7,6 +7,7 @@
  * Порядок соответствует порядку полей в WBSalesRow
  */
 export const WB_KEY_METRICS_HEADERS: string[] = [
+    'Магазин',
     'Артикул WB',
     'Название карточки товара',
     'Артикул продавца',
@@ -49,6 +50,7 @@ export const WB_KEY_METRICS_HEADERS: string[] = [
  * Порядок соответствует порядку полей в WBStocksRow
  */
 export const WB_STOCKS_HEADERS: string[] = [
+    'Магазин',
     'Дата',
     'Артикул продавца',
     'Остаток WB',
