@@ -4,6 +4,7 @@ import { logger } from '../../../common/helpers/logger';
 import { getPeriod, SelectedPeriod, fetchWBFunnelData, getWBFunnelFilePath } from './wb-funnel.helpers';
 import { adaptWBFunnelToCSVFormat } from './adapters/wb-funnel.adapter';
 import { WB_FUNNEL_HEADERS } from './adapters/wb-funnel.headers.const';
+import { getRuntimeEnvironment } from '../../../common/helpers/runtime-env.helper';
 
 /**
  * Главная функция фичи wb-funnel
@@ -16,6 +17,10 @@ export async function wbFunnelByStore(
     storeIdentifier: WBStoreIdentifier,
     selectedPeriod?: SelectedPeriod
 ): Promise<void> {
+    // Проверяем окружение выполнения перед запуском фичи
+    const runtimeEnv = getRuntimeEnvironment();
+    logger.info(`🔧 Окружение выполнения: ${runtimeEnv}`);
+
     logger.info(`🚀 Запуск wb-funnel для ${storeIdentifier}`);
 
     // 1. Определяем период: если не передан, используем вчерашний день по МСК
