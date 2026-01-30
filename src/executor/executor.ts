@@ -1,9 +1,9 @@
-import { logger } from '../common/utils/logger';
+import { logger } from '../common/helpers/logger';
 import { Marketplace } from '../common/enums/marketplace.enum';
 import { Feature } from '../wildberries/enums/wb-feature.enum';
 import { pingWBStore } from '../wildberries/features/ping/ping';
 // eslint-disable-next-line max-len
-import { salesFunnelDailyReportWBStore } from '../wildberries/features/sales-funnel-daily/sales-funnel-daily-report.local';
+import { wbFunnelByStore } from '../wildberries/features/wb-funnel/wb-funnel';
 import { WBStoreIdentifier } from '../wildberries/enums/wb-store-identifier.enum';
 import { parseArgs } from './executor.helpers';
 
@@ -19,8 +19,8 @@ async function runWBFeature(feature: Feature, store: WBStoreIdentifier): Promise
             await pingWBStore(store);
             break;
         }
-        case Feature.SALES_FUNNEL_DAILY: {
-            await salesFunnelDailyReportWBStore(store);
+        case Feature.WB_FUNNEL: {
+            await wbFunnelByStore(store);
             break;
         }
         default:

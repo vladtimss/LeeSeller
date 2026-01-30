@@ -1,6 +1,6 @@
 import * as dotenv from 'dotenv';
 import { WBStoreIdentifier } from '../enums/wb-store-identifier.enum';
-import { ApiRequestConfig } from '../../common/utils/api-request.util';
+import { ApiRequestConfig } from '../../common/helpers/api-request.helper';
 
 dotenv.config();
 
@@ -56,4 +56,20 @@ export function getWBAnalyticsConfig(token: string): ApiRequestConfig {
             Authorization: token,
         },
     };
+}
+
+/**
+ * Преобразует идентификатор магазина в короткое название для файлов
+ * @param storeIdentifier - Идентификатор магазина из enum
+ * @returns Короткое название магазина
+ */
+export function getStoreShortName(storeIdentifier: WBStoreIdentifier): string {
+    switch (storeIdentifier) {
+        case WBStoreIdentifier.POVAR_NA_RAYONE:
+            return 'povar';
+        case WBStoreIdentifier.LEESHOP:
+            return 'leeshop';
+        default:
+            return storeIdentifier;
+    }
 }
