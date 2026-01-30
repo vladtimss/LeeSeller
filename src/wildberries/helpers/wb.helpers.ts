@@ -1,8 +1,6 @@
-import * as dotenv from 'dotenv';
 import { WBStoreIdentifier } from '../enums/wb-store-identifier.enum';
-import { ApiRequestConfig } from '../../common/helpers/api-request.helper';
-
-dotenv.config();
+import { ApiRequestConfig } from '../../common/helpers/api/api-request.types';
+import { getEnvVariableRequired } from '../../common/helpers/env/env-helpers';
 
 /**
  * Базовый URL для Wildberries Seller Analytics API
@@ -27,20 +25,15 @@ export function getStoreEnvKey(storeIdentifier: WBStoreIdentifier): string {
 }
 
 /**
- * Извлекает токен WB из .env по идентификатору магазина
+ * Извлекает токен WB из переменных окружения по идентификатору магазина
+ * Использует getEnvVariableRequired для получения значения (работает и в Node.js, и в GAS)
  * @param storeIdentifier - Идентификатор магазина WB из enum
  * @returns Токен авторизации для WB API
- * @throws Error если токен не найден в .env
+ * @throws Error если токен не найден
  */
 export function getWBStoreToken(storeIdentifier: WBStoreIdentifier): string {
     const envKey = getStoreEnvKey(storeIdentifier);
-    const token = process.env[envKey];
-
-    if (!token) {
-        throw new Error(`Не найден токен: ${envKey}`);
-    }
-
-    return token;
+    return getEnvVariableRequired(envKey);
 }
 
 /**
