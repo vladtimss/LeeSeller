@@ -1,4 +1,4 @@
-import { makeApiRequest } from '../../../common/utils/api-request.util';
+import { makeApiRequest } from '../../../common/helpers/api-request.helper';
 import { getWBAnalyticsConfig } from '../../helpers/wb.helpers';
 import {
     SalesFunnelProductsRequest,

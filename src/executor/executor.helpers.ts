@@ -1,4 +1,4 @@
-import { logger } from '../common/utils/logger';
+import { logger } from '../common/helpers/logger';
 import { Marketplace } from '../common/enums/marketplace.enum';
 import { Feature } from '../wildberries/enums/wb-feature.enum';
 import { WBStoreIdentifier } from '../wildberries/enums/wb-store-identifier.enum';

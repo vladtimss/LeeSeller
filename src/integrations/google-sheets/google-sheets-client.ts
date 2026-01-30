@@ -1,5 +1,5 @@
 import * as fs from 'fs';
-import { escapeCsvValue, rowToCsv } from '../../common/utils/csv-helpers';
+import { rowToCsv } from '../../common/helpers/csv-helpers';
 
 /**
  * Режим записи данных в файл
@@ -75,7 +75,7 @@ export function writeCsvFile(
     filePath: string,
     headers: string[],
     rows: (string | number | null | undefined)[][],
-    mode: WriteMode = WriteMode.OVERWRITE
+    mode: WriteMode = WriteMode.OVERWRITE,
 ): void {
     if (rows.length === 0 && mode === WriteMode.APPEND) {
         return;

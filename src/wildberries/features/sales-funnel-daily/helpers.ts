@@ -6,7 +6,7 @@ import { adaptSalesFunnelToStocksCSV } from './adapters/stocks.adapter';
 import { WB_KEY_METRICS_HEADERS, WB_STOCKS_HEADERS } from './adapters/csv-headers.const';
 import { writeCsvFile, WriteMode } from '../../../integrations/google-sheets/google-sheets-client';
 import { SalesFunnelProductsRequest, SalesFunnelProduct } from './types';
-import { logger } from '../../../common/utils/logger';
+import { logger } from '../../../common/helpers/logger';
 import { getCurrentDate } from '../../../common/helpers/date-helpers';
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
 

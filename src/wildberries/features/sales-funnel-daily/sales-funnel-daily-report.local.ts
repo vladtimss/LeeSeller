@@ -1,7 +1,7 @@
 import { getWBStoreToken } from '../../helpers/wb.helpers';
 import { getYesterdayDate } from '../../../common/helpers/date-helpers';
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
-import { logger } from '../../../common/utils/logger';
+import { logger } from '../../../common/helpers/logger';
 import { fetchWBData, prepareOutputDir, createKeyMetricsReport, createStocksReport } from './helpers';
 
 /**
