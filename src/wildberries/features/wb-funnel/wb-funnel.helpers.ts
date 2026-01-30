@@ -2,7 +2,7 @@ import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
 import { getYesterdayDateMoscow } from '../../../common/helpers/date-helpers';
 import { getStoreShortName } from '../../helpers/wb.helpers';
 import { getWBSalesFunnelProducts } from '../../services/wb-api-service';
-import { SalesFunnelProduct, SalesFunnelProductsRequest } from '../sales-funnel-daily/types';
+import { SalesFunnelProduct, SalesFunnelProductsRequest } from './wb-funnel.types';
 import { logger } from '../../../common/helpers/logger';
 import { prepareOutputDir } from '../../../common/helpers/file-helpers';
 import * as path from 'path';

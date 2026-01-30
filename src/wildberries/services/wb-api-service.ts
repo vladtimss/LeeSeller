@@ -5,7 +5,7 @@ import {
     SalesFunnelProductsRequest,
     SalesFunnelProduct,
     SalesFunnelProductsResponse,
-} from '../features/sales-funnel-daily/types';
+} from '../features/wb-funnel/wb-funnel.types';
 
 /**
  * Базовый URL для Wildberries API

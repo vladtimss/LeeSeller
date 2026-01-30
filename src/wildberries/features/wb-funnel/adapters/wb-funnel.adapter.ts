@@ -1,4 +1,4 @@
-import { SalesFunnelProduct } from '../../sales-funnel-daily/types';
+import { SalesFunnelProduct } from '../wb-funnel.types';
 import { formatTags } from '../wb-funnel.helpers';
 import { WB_FUNNEL_FIELDS } from './wb-funnel.headers.const';
 import { extractMonth, extractYear, getWeekNumber } from '../../../../common/helpers/date-helpers';
@@ -29,41 +29,76 @@ export function adaptWBFunnelToCSVFormat(products: SalesFunnelProduct[]): (strin
         // Используем switch или маппинг по field для извлечения значений
         const getValue = (field: string): string | number | null => {
             switch (field) {
-                case 'year': return year;
-                case 'month': return month;
-                case 'week': return week;
-                case 'vendorCode': return product.vendorCode;
-                case 'nmId': return product.nmId;
-                case 'title': return product.title;
-                case 'subjectName': return product.subjectName;
-                case 'brandName': return product.brandName;
-                case 'tags': return tagsFormatted;
-                case 'deletedProduct': return null;
-                case 'productRating': return product.productRating;
-                case 'feedbackRating': return product.feedbackRating;
-                case 'date': return date;
-                case 'views': return null;
-                case 'ctr': return null;
-                case 'openCount': return selected.openCount;
-                case 'cartCount': return selected.cartCount;
-                case 'addToWishlist': return selected.addToWishlist;
-                case 'orderCount': return selected.orderCount;
-                case 'wbClubOrderCount': return wbClub.orderCount;
-                case 'buyoutCount': return selected.buyoutCount;
-                case 'wbClubBuyoutCount': return wbClub.buyoutCount;
-                case 'cancelCount': return selected.cancelCount;
-                case 'wbClubCancelCount': return wbClub.cancelCount;
-                case 'addToCartPercent': return conversions.addToCartPercent;
-                case 'cartToOrderPercent': return conversions.cartToOrderPercent;
-                case 'buyoutPercent': return conversions.buyoutPercent;
-                case 'wbClubBuyoutPercent': return wbClub.buyoutPercent;
-                case 'orderSum': return selected.orderSum;
-                case 'wbClubOrderSum': return wbClub.orderSum;
-                case 'buyoutSum': return selected.buyoutSum;
-                case 'wbClubBuyoutSum': return wbClub.buyoutSum;
-                case 'cancelSum': return selected.cancelSum;
-                case 'wbClubCancelSum': return wbClub.cancelSum;
-                default: return null;
+                case 'year':
+                    return year;
+                case 'month':
+                    return month;
+                case 'week':
+                    return week;
+                case 'vendorCode':
+                    return product.vendorCode;
+                case 'nmId':
+                    return product.nmId;
+                case 'title':
+                    return product.title;
+                case 'subjectName':
+                    return product.subjectName;
+                case 'brandName':
+                    return product.brandName;
+                case 'tags':
+                    return tagsFormatted;
+                case 'deletedProduct':
+                    return null;
+                case 'productRating':
+                    return product.productRating;
+                case 'feedbackRating':
+                    return product.feedbackRating;
+                case 'date':
+                    return date;
+                case 'views':
+                    return null;
+                case 'ctr':
+                    return null;
+                case 'openCount':
+                    return selected.openCount;
+                case 'cartCount':
+                    return selected.cartCount;
+                case 'addToWishlist':
+                    return selected.addToWishlist;
+                case 'orderCount':
+                    return selected.orderCount;
+                case 'wbClubOrderCount':
+                    return wbClub.orderCount;
+                case 'buyoutCount':
+                    return selected.buyoutCount;
+                case 'wbClubBuyoutCount':
+                    return wbClub.buyoutCount;
+                case 'cancelCount':
+                    return selected.cancelCount;
+                case 'wbClubCancelCount':
+                    return wbClub.cancelCount;
+                case 'addToCartPercent':
+                    return conversions.addToCartPercent;
+                case 'cartToOrderPercent':
+                    return conversions.cartToOrderPercent;
+                case 'buyoutPercent':
+                    return conversions.buyoutPercent;
+                case 'wbClubBuyoutPercent':
+                    return wbClub.buyoutPercent;
+                case 'orderSum':
+                    return selected.orderSum;
+                case 'wbClubOrderSum':
+                    return wbClub.orderSum;
+                case 'buyoutSum':
+                    return selected.buyoutSum;
+                case 'wbClubBuyoutSum':
+                    return wbClub.buyoutSum;
+                case 'cancelSum':
+                    return selected.cancelSum;
+                case 'wbClubCancelSum':
+                    return wbClub.cancelSum;
+                default:
+                    return null;
             }
         };
 

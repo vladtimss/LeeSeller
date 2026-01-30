@@ -1,5 +1,5 @@
 /**
- * Типы для фичи Sales Funnel Daily
+ * Типы для WB Analytics API - Воронка продаж
  * API: https://dev.wildberries.ru/openapi/analytics/#tag/Voronka-prodazh/operation/postSalesFunnelProducts
  */
 
@@ -203,72 +203,4 @@ export interface SalesFunnelProductsResponse {
     data: {
         products: SalesFunnelProduct[];
     };
-}
-
-// ============================================================================
-// DTO для таблиц (плоские структуры для строк)
-// ============================================================================
-
-/**
- * Строка для листа "Статистика"
- * Все поля из statistic.selected распакованы в плоскую структуру
- */
-export interface WBSalesRow {
-    // Базовые поля товара
-    nmId: number;
-    title: string;
-    vendorCode: string;
-    brandName: string;
-    productRating: number;
-    feedbackRating: number;
-    // Дата периода (selected.period.start, так как start = end)
-    date: string;
-    // Поля из statistic.selected (плоские)
-    openCount: number;
-    cartCount: number;
-    orderCount: number;
-    orderSum: number;
-    buyoutCount: number;
-    buyoutSum: number;
-    cancelCount: number;
-    cancelSum: number;
-    avgPrice: number;
-    avgOrdersCountPerDay: number;
-    shareOrderPercent: number;
-    addToWishlist: number;
-    // timeToReady распакован
-    timeToReadyDays: number;
-    timeToReadyHours: number;
-    timeToReadyMins: number;
-    localizationPercent: number;
-    // wbClub распакован
-    wbClubOrderCount: number;
-    wbClubOrderSum: number;
-    wbClubBuyoutSum: number;
-    wbClubBuyoutCount: number;
-    wbClubCancelSum: number;
-    wbClubCancelCount: number;
-    wbClubAvgPrice: number;
-    wbClubBuyoutPercent: number;
-    wbClubAvgOrderCountPerDay: number;
-    // conversions распакованы
-    addToCartPercent: number;
-    cartToOrderPercent: number;
-    buyoutPercent: number;
-}
-
-/**
- * Строка для листа "Остатки"
- */
-export interface WBStocksRow {
-    /** Дата выполнения функции (момент получения данных) */
-    runDate: string;
-    /** Артикул продавца */
-    vendorCode: string;
-    /** Остаток на складе WB */
-    stocksWb: number;
-    /** Остаток на складе маркетплейса */
-    stocksMp: number;
-    /** Сумма остатков */
-    stocksBalanceSum: number;
 }
