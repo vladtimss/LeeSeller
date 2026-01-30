@@ -1,10 +1,11 @@
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
-import { writeCsvFile, WriteMode } from '../../../common/helpers/files/files.helper';
+import { writeCsvFile } from '../../../common/helpers/files/files.helper';
 import { logger } from '../../../common/helpers/logs/logger';
 import { getPeriod, SelectedPeriod, fetchWBFunnelData, getWBFunnelFilePath } from './wb-funnel.helpers';
 import { adaptWBFunnelToCSVFormat } from './adapters/wb-funnel.adapter';
 import { WB_FUNNEL_HEADERS } from './adapters/wb-funnel.headers.const';
 import { getRuntimeEnvironment } from '../../../common/helpers/runtime/runtime-env.helper';
+import { WriteMode } from '../../../common/helpers/files/files.types';
 
 /**
  * Главная функция фичи wb-funnel

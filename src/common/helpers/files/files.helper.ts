@@ -1,19 +1,7 @@
 import { isNode, isGoogleAppsScript } from '../runtime/runtime-env.helper';
-import {
-    getProjectRootNode,
-    joinPathNode,
-    prepareOutputDirNode,
-    writeCsvFileNode,
-} from './files.node';
-import {
-    getProjectRootGAS,
-    joinPathGAS,
-    prepareOutputDirGAS,
-    writeCsvFileGAS,
-} from './files.gas';
-
-// Экспортируем типы
-export { WriteMode, type OutputDirResult } from './files.types';
+import { getProjectRootNode, joinPathNode, prepareOutputDirNode, writeCsvFileNode } from './files.node';
+import { getProjectRootGAS, joinPathGAS, prepareOutputDirGAS, writeCsvFileGAS } from './files.gas';
+import { OutputDirResult, WriteMode } from './files.types';
 
 /**
  * Получает корневую директорию/папку проекта
