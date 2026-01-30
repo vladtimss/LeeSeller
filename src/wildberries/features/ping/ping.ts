@@ -1,5 +1,5 @@
 import { pingWBStore as pingWBStoreAPI } from '../../services/wb-api-service';
-import { logger } from '../../../common/helpers/logger';
+import { logger } from '../../../common/helpers/logs/logger';
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
 import { getRuntimeEnvironment } from '../../../common/helpers/runtime-env.helper';
 

@@ -3,7 +3,7 @@ import { getYesterdayDateMoscow } from '../../../common/helpers/date-helpers';
 import { getStoreShortName } from '../../helpers/wb.helpers';
 import { getWBSalesFunnelProducts } from '../../services/wb-api-service';
 import { SalesFunnelProduct, SalesFunnelProductsRequest } from './wb-funnel.types';
-import { logger } from '../../../common/helpers/logger';
+import { logger } from '../../../common/helpers/logs/logger';
 import { prepareOutputDir } from '../../../common/helpers/file-helpers';
 import * as path from 'path';
 
@@ -65,7 +65,7 @@ export function formatTags(tags: WBTag[]): string {
  */
 export async function fetchWBFunnelData(
     storeIdentifier: WBStoreIdentifier,
-    period: SelectedPeriod
+    period: SelectedPeriod,
 ): Promise<SalesFunnelProduct[]> {
     // 1. Подготавливаем запрос к API
     const request: SalesFunnelProductsRequest = {
@@ -93,10 +93,7 @@ export async function fetchWBFunnelData(
  * @param storeIdentifier - Идентификатор магазина WB
  * @returns Полный путь к файлу
  */
-export function getWBFunnelFilePath(
-    period: SelectedPeriod,
-    storeIdentifier: WBStoreIdentifier
-): string {
+export function getWBFunnelFilePath(period: SelectedPeriod, storeIdentifier: WBStoreIdentifier): string {
     // Подготавливаем директорию для сохранения файла
     const outputDir = prepareOutputDir();
 

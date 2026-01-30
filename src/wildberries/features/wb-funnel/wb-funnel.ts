@@ -1,6 +1,6 @@
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
 import { writeCsvFile, WriteMode } from '../../../integrations/google-sheets/google-sheets-client';
-import { logger } from '../../../common/helpers/logger';
+import { logger } from '../../../common/helpers/logs/logger';
 import { getPeriod, SelectedPeriod, fetchWBFunnelData, getWBFunnelFilePath } from './wb-funnel.helpers';
 import { adaptWBFunnelToCSVFormat } from './adapters/wb-funnel.adapter';
 import { WB_FUNNEL_HEADERS } from './adapters/wb-funnel.headers.const';
@@ -15,7 +15,7 @@ import { getRuntimeEnvironment } from '../../../common/helpers/runtime-env.helpe
  */
 export async function wbFunnelByStore(
     storeIdentifier: WBStoreIdentifier,
-    selectedPeriod?: SelectedPeriod
+    selectedPeriod?: SelectedPeriod,
 ): Promise<void> {
     // Проверяем окружение выполнения перед запуском фичи
     const runtimeEnv = getRuntimeEnvironment();
