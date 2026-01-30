@@ -1,10 +1,11 @@
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
-import { writeCsvFile, WriteMode } from '../../../integrations/google-sheets/google-sheets-client';
+import { writeCsvFile } from '../../../common/helpers/files/write/file-writer.helper';
 import { logger } from '../../../common/helpers/logs/logger';
 import { getPeriod, SelectedPeriod, fetchWBFunnelData, getWBFunnelFilePath } from './wb-funnel.helpers';
 import { adaptWBFunnelToCSVFormat } from './adapters/wb-funnel.adapter';
 import { WB_FUNNEL_HEADERS } from './adapters/wb-funnel.headers.const';
 import { getRuntimeEnvironment } from '../../../common/helpers/runtime-env.helper';
+import { WriteMode } from '../../../common/helpers/files/write/file-writer.types';
 
 /**
  * Главная функция фичи wb-funnel
