@@ -101,13 +101,14 @@ export function getWBFunnelFilePath(period: SelectedPeriod, storeIdentifier: WBS
     const storeShortName = getStoreShortName(storeIdentifier);
     const fileName = `wb-funnel-${period.start}-${storeShortName}.csv`;
 
-    // Возвращаем полный путь (Node.js) или имя файла (GAS)
-    // В GAS pathOrId - это ID папки, но для совместимости API возвращаем имя файла
+    // Возвращаем полный путь (Node.js) или имя листа (GAS)
+    // В GAS работаем с Google Sheets, поэтому возвращаем имя листа
     // В Node.js pathOrId - это путь к директории, объединяем с именем файла
     if (isNode()) {
         return joinPath(outputDirResult.pathOrId, fileName);
     } else {
-        // В GAS возвращаем только имя файла (будет использоваться в writeCsvFileGAS)
-        return fileName;
+        // В GAS возвращаем имя листа в формате: wb-funnel-{storeShortName}-data
+        // (без даты и расширения, так как данные дописываются в один лист)
+        return `wb-funnel-${storeShortName}-data`;
     }
 }

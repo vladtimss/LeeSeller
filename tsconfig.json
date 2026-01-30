@@ -12,7 +12,9 @@
     "skipLibCheck": true
   },
   "include": ["src/**/*.ts",
-      "src/executor/**/*.ts"
+      "src/executor/**/*.ts",
+      "scripts/**/*.ts",
+      "webpack.config.ts"
   ],
   "exclude": ["node_modules"]
 }
