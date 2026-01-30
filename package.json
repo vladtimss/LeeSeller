@@ -6,8 +6,6 @@
         "executor": "ts-node src/executor/executor.ts",
         "wb:ping:povar": "ts-node src/executor/executor.ts wb ping povar-na-rayone",
         "wb:ping:leeshop": "ts-node src/executor/executor.ts wb ping leeshop",
-        "wb:sales-funnel-daily:povar": "ts-node src/executor/executor.ts wb sales-funnel-daily povar-na-rayone",
-        "wb:sales-funnel-daily:leeshop": "ts-node src/executor/executor.ts wb sales-funnel-daily leeshop",
         "wb:funnel:povar": "ts-node src/executor/executor.ts wb wb-funnel povar-na-rayone",
         "wb:funnel:leeshop": "ts-node src/executor/executor.ts wb wb-funnel leeshop",
         "lint": "eslint src src/executor",
