@@ -1,7 +1,7 @@
 import { pingWBStore as pingWBStoreAPI } from '../../services/wb-api-service';
 import { logger } from '../../../common/helpers/logs/logger';
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
-import { getRuntimeEnvironment } from '../../../common/helpers/runtime-env.helper';
+import { getRuntimeEnvironment } from '../../../common/helpers/runtime/runtime-env.helper';
 
 /**
  * Главная функция фичи ping для проверки подключения к WB API

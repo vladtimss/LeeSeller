@@ -7,3 +7,13 @@ export enum WriteMode {
     /** Перезаписать файл полностью */
     OVERWRITE = 'overwrite',
 }
+
+/**
+ * Результат подготовки директории/папки
+ */
+export interface OutputDirResult {
+    /** Путь к директории (Node.js) или ID папки (GAS) */
+    pathOrId: string;
+    /** Имя директории/папки */
+    name: string;
+}

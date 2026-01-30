@@ -1,4 +1,4 @@
-import { isNode, isGoogleAppsScript } from '../runtime-env.helper';
+import { isNode, isGoogleAppsScript } from '../runtime/runtime-env.helper';
 import { makeApiRequestNode } from './api-request.node';
 import { makeApiRequestGAS } from './api-request.gas';
 import { ApiRequestConfig, ApiRequestInit } from './api-request.types';

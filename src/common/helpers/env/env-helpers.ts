@@ -1,4 +1,4 @@
-import { isNode, isGoogleAppsScript } from '../runtime-env.helper';
+import { isNode, isGoogleAppsScript } from '../runtime/runtime-env.helper';
 import { getEnvVariableNode } from './env-helpers.node';
 import { getEnvVariableGAS } from './env-helpers.gas';
 

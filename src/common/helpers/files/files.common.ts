@@ -1,10 +1,10 @@
+import { rowToCsv } from './csv-helpers';
+
 /**
  * Парсит строку CSV в массив значений
  * Обрабатывает кавычки, экранированные кавычки, запятые внутри кавычек
- * @param line - Строка CSV для парсинга
- * @returns Массив значений из строки CSV
  */
-export function parseCsvLine(line: string): string[] {
+function parseCsvLine(line: string): string[] {
     const values: string[] = [];
     let current = '';
     let inQuotes = false;
@@ -14,15 +14,12 @@ export function parseCsvLine(line: string): string[] {
 
         if (char === '"') {
             if (inQuotes && line[i + 1] === '"') {
-                // Удвоенная кавычка - экранированная кавычка
                 current += '"';
-                i++; // Пропускаем следующую кавычку
+                i++;
             } else {
-                // Начало/конец кавычек
                 inQuotes = !inQuotes;
             }
         } else if (char === ',' && !inQuotes) {
-            // Запятая вне кавычек - разделитель
             values.push(current);
             current = '';
         } else {
@@ -30,25 +27,46 @@ export function parseCsvLine(line: string): string[] {
         }
     }
 
-    // Добавляем последнее значение
     values.push(current);
-
     return values;
 }
 
 /**
  * Парсит CSV контент в массив строк данных (без заголовков)
- * @param content - CSV контент (строка)
- * @returns Массив строк данных (без заголовков) или пустой массив, если данных нет
  */
 export function parseCsvContent(content: string): (string | number | null | undefined)[][] {
     const lines = content.split('\n').filter((line) => line.trim() !== '');
 
-    // Пропускаем заголовки (первая строка)
     if (lines.length <= 1) {
         return [];
     }
 
-    // Парсим строки CSV (без заголовков)
     return lines.slice(1).map((line) => parseCsvLine(line));
+}
+
+/**
+ * Формирует CSV контент из заголовков и строк данных
+ */
+export function buildCsvContent(
+    headers: string[],
+    rows: (string | number | null | undefined)[][],
+): string {
+    const csvLines: string[] = [];
+    csvLines.push(rowToCsv(headers));
+
+    for (const row of rows) {
+        csvLines.push(rowToCsv(row));
+    }
+
+    return csvLines.join('\n') + '\n';
+}
+
+/**
+ * Объединяет существующие строки с новыми для режима APPEND
+ */
+export function mergeCsvRows(
+    existingRows: (string | number | null | undefined)[][],
+    newRows: (string | number | null | undefined)[][],
+): (string | number | null | undefined)[][] {
+    return [...existingRows, ...newRows];
 }

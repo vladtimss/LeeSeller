@@ -1,11 +1,11 @@
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
-import { getYesterdayDateMoscow } from '../../../common/helpers/date-helpers';
+import { getYesterdayDateMoscow } from '../../../common/helpers/date/date-helpers';
 import { getStoreShortName } from '../../helpers/wb.helpers';
 import { getWBSalesFunnelProducts } from '../../services/wb-api-service';
 import { SalesFunnelProduct, SalesFunnelProductsRequest } from './wb-funnel.types';
 import { logger } from '../../../common/helpers/logs/logger';
-import { prepareOutputDir } from '../../../common/helpers/file-helpers';
-import * as path from 'path';
+import { prepareOutputDir, joinPath } from '../../../common/helpers/files/files.helper';
+import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
 
 /**
  * Период для запроса статистики
@@ -95,12 +95,19 @@ export async function fetchWBFunnelData(
  */
 export function getWBFunnelFilePath(period: SelectedPeriod, storeIdentifier: WBStoreIdentifier): string {
     // Подготавливаем директорию для сохранения файла
-    const outputDir = prepareOutputDir();
+    const outputDirResult = prepareOutputDir();
 
     // Формируем имя файла: wb-funnel-YYYY-MM-DD-store.csv
     const storeShortName = getStoreShortName(storeIdentifier);
     const fileName = `wb-funnel-${period.start}-${storeShortName}.csv`;
 
-    // Возвращаем полный путь
-    return path.join(outputDir, fileName);
+    // Возвращаем полный путь (Node.js) или имя файла (GAS)
+    // В GAS pathOrId - это ID папки, но для совместимости API возвращаем имя файла
+    // В Node.js pathOrId - это путь к директории, объединяем с именем файла
+    if (isNode()) {
+        return joinPath(outputDirResult.pathOrId, fileName);
+    } else {
+        // В GAS возвращаем только имя файла (будет использоваться в writeCsvFileGAS)
+        return fileName;
+    }
 }

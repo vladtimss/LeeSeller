@@ -1,7 +1,7 @@
 import { SalesFunnelProduct } from '../wb-funnel.types';
 import { formatTags } from '../wb-funnel.helpers';
 import { WB_FUNNEL_FIELDS } from './wb-funnel.headers.const';
-import { extractMonth, extractYear, getWeekNumber } from '../../../../common/helpers/date-helpers';
+import { extractMonth, extractYear, getWeekNumber } from '../../../../common/helpers/date/date-helpers';
 
 /**
  * Преобразует данные воронки продаж WB в формат для CSV файла
