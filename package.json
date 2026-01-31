@@ -8,8 +8,11 @@
         "wb:ping:leeshop": "ts-node src/executor/executor.ts wb ping leeshop",
         "wb:funnel:povar": "ts-node src/executor/executor.ts wb wb-funnel povar-na-rayone",
         "wb:funnel:leeshop": "ts-node src/executor/executor.ts wb wb-funnel leeshop",
+        "wb:stocks:povar": "ts-node src/executor/executor.ts wb wb-stocks povar-na-rayone",
+        "wb:stocks:leeshop": "ts-node src/executor/executor.ts wb wb-stocks leeshop",
         "build:gas": "ts-node scripts/build-gas.ts",
         "build:wb-funnel": "ts-node scripts/build-gas.ts src/wildberries/features/wb-funnel/wb-funnel.ts",
+        "build:wb-stocks": "ts-node scripts/build-gas.ts src/wildberries/features/wb-stocks/wb-stocks.ts",
         "build:ping": "ts-node scripts/build-gas.ts src/wildberries/features/ping/ping.ts",
         "lint": "eslint src src/executor",
         "format": "prettier --write \"src/**/*.ts\" \"src/executor/**/*.ts\""
@@ -20,6 +23,8 @@
     "description": "",
     "devDependencies": {
         "@eslint/js": "^9.26.0",
+        "@rollup/plugin-node-resolve": "^15.3.0",
+        "@rollup/plugin-typescript": "^12.1.1",
         "@types/node": "22.13.5",
         "@types/node-fetch": "^2.6.11",
         "@typescript-eslint/eslint-plugin": "^8.32.1",
@@ -28,15 +33,14 @@
         "eslint-config-prettier": "^10.1.5",
         "globals": "^16.1.0",
         "prettier": "3.5.3",
-        "@rollup/plugin-node-resolve": "^15.3.0",
-        "@rollup/plugin-typescript": "^12.1.1",
-        "tslib": "^2.8.1",
         "rollup": "^4.24.0",
         "ts-node": "^10.9.2",
+        "tslib": "^2.8.1",
         "typescript": "5.7.3",
         "typescript-eslint": "^8.32.1"
     },
     "dependencies": {
+        "adm-zip": "^0.5.16",
         "dotenv": "^16.4.7",
         "node-fetch": "^3.3.2"
     }

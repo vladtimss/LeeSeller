@@ -8,7 +8,9 @@ import {
 } from '../features/wb-funnel/wb-funnel.types';
 import {
     CreateReportResponse,
+    ReportStatus,
     ReportStatusResponse,
+    ReportsListResponse,
     StockHistoryReportRequest,
 } from '../features/wb-stocks/wb-stocks.types';
 import { ApiRequestConfig } from '../../common/helpers/api/api-request.types';
@@ -99,17 +101,41 @@ export async function createStockHistoryReport(
         body: JSON.stringify(request),
     });
 
-    logger.info('✅ Задача создана: ' + response.id);
-    return response;
+    // API может вернуть ответ без id, используем id из запроса
+    const reportId = response.id || request.id;
+    logger.info('✅ Задача создана: ' + reportId);
+    return {
+        id: reportId,
+        status: response.status,
+    };
+}
+
+/**
+ * Преобразует статус из API в нормализованный статус
+ */
+function normalizeReportStatus(apiStatus: string): ReportStatus {
+    switch (apiStatus) {
+        case 'SUCCESS':
+            return 'ready';
+        case 'PROCESSING':
+            return 'processing';
+        case 'ERROR':
+            return 'error';
+        case 'PENDING':
+            return 'pending';
+        default:
+            return 'pending';
+    }
 }
 
 /**
  * Проверяет статус отчета об остатках по идентификатору задачи
  * API: GET https://seller-analytics-api.wildberries.ru/api/v2/nm-report/downloads
+ * API возвращает объект с полем data, содержащим массив всех отчетов, нужно найти нужный по id
  * @param storeIdentifier - Идентификатор магазина WB
  * @param reportId - Идентификатор задачи на генерацию отчета
  * @returns Промис с информацией о статусе отчета
- * @throws Error если токен не найден или произошла ошибка при запросе
+ * @throws Error если токен не найден, отчет не найден или произошла ошибка при запросе
  */
 export async function getStockReportStatus(
     storeIdentifier: WBStoreIdentifier,
@@ -117,14 +143,31 @@ export async function getStockReportStatus(
 ): Promise<ReportStatusResponse> {
     const token = getWBStoreToken(storeIdentifier);
     const config = getWBAnalyticsConfig(token);
-    const path = '/api/v2/nm-report/downloads/' + reportId;
+    const path = '/api/v2/nm-report/downloads';
 
-    const response = await makeApiRequest<ReportStatusResponse>(config, path, {
+    const response = await makeApiRequest<ReportsListResponse>(config, path, {
         method: 'GET',
     });
 
-    logger.info('📊 Статус отчета ' + reportId + ': ' + response.status);
-    return response;
+    // Извлекаем массив отчетов из поля data
+    const reports = response.data || [];
+
+    // Ищем отчет с нужным id
+    const report = reports.find((r) => r.id === reportId);
+
+    if (!report) {
+        throw new Error('Отчет с id ' + reportId + ' не найден в списке отчетов');
+    }
+
+    // Преобразуем статус из API в нормализованный
+    const normalizedStatus = normalizeReportStatus(report.status);
+
+    logger.info('📊 Статус отчета ' + reportId + ': ' + normalizedStatus + ' (API: ' + report.status + ')');
+
+    return {
+        id: report.id,
+        status: normalizedStatus,
+    };
 }
 
 /**

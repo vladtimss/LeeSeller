@@ -15,7 +15,7 @@ function replaceNodeModules(): Plugin {
         name: 'replace-node-modules',
         resolveId(source) {
             // Заменяем Node.js модули на заглушки
-            if (['path', 'fs', 'os', 'crypto', 'node-fetch', 'dotenv'].includes(source)) {
+            if (['path', 'fs', 'os', 'crypto', 'node-fetch', 'dotenv', 'adm-zip'].includes(source)) {
                 return source; // Помечаем как resolved
             }
             return null;
@@ -53,7 +53,7 @@ function replaceNodeModules(): Plugin {
                     export default { config };
                 `;
             }
-            if (id === 'os' || id === 'crypto' || id === 'node-fetch') {
+            if (id === 'os' || id === 'crypto' || id === 'node-fetch' || id === 'adm-zip') {
                 return 'export default {};';
             }
             return null;

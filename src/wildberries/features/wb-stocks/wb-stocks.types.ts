@@ -73,22 +73,55 @@ export interface CreateReportResponse {
 }
 
 /**
- * Статус отчета
+ * Статус отчета из API
+ */
+export type ApiReportStatus = 'SUCCESS' | 'PROCESSING' | 'ERROR' | 'PENDING';
+
+/**
+ * Статус отчета (нормализованный)
  */
 export type ReportStatus = 'pending' | 'processing' | 'ready' | 'error';
 
 /**
- * Ответ при проверке статуса отчета
+ * Элемент отчета из API ответа
+ */
+export interface ApiReportItem {
+    /** Идентификатор задачи */
+    id: string;
+    /** Статус отчета из API */
+    status: ApiReportStatus;
+    /** Название отчета */
+    name: string;
+    /** Размер файла в байтах */
+    size: number;
+    /** Дата начала периода */
+    startDate: string;
+    /** Дата конца периода */
+    endDate: string;
+    /** Дата создания отчета */
+    createdAt: string;
+}
+
+/**
+ * Ответ при проверке статуса отчета (нормализованный)
  */
 export interface ReportStatusResponse {
     /** Идентификатор задачи */
     id: string;
-    /** Статус отчета */
+    /** Статус отчета (нормализованный) */
     status: ReportStatus;
     /** URL для скачивания файла (если статус 'ready') */
     fileUrl?: string;
     /** Сообщение об ошибке (если статус 'error') */
     error?: string;
+}
+
+/**
+ * Ответ при получении списка отчетов (GET /api/v2/nm-report/downloads)
+ * API возвращает объект с полем data, содержащим массив отчетов
+ */
+export interface ReportsListResponse {
+    data: ApiReportItem[];
 }
 
 // ============================================================================
