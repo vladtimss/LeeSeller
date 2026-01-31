@@ -316,7 +316,30 @@ export async function waitForStockReportReady(
 
 /**
  * Вспомогательная функция для задержки
+ * В Node.js использует setTimeout, в GAS - Utilities.sleep()
  */
 function sleep(ms: number): Promise<void> {
-    return new Promise((resolve) => setTimeout(resolve, ms));
+    if (isNode()) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    // GAS окружение
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const Utilities = (
+        globalThis as {
+            Utilities?: {
+                sleep: (milliseconds: number) => void;
+            };
+        }
+    ).Utilities;
+
+    if (!Utilities) {
+        throw new Error('Utilities не доступен. Убедитесь, что код запущен в Google Apps Script окружении.');
+    }
+
+    // Utilities.sleep() синхронный, но оборачиваем в Promise для совместимости с async/await
+    return new Promise((resolve) => {
+        Utilities.sleep(ms);
+        resolve();
+    });
 }

@@ -79,6 +79,9 @@ function generateRollupConfig(entryPoint: string): RollupOptions {
             file: path.join(outputDir, outputFileName),
             format: 'iife', // IIFE для плоского кода, но потом уберем обертку
             name: 'wbFunnel',
+            // Инлайним динамические импорты вместо создания отдельных чанков
+            // Это нужно для поддержки динамических импортов (например, adm-zip) в формате IIFE
+            inlineDynamicImports: true,
             // Не минифицируем для читаемости
             compact: false,
             // Генерируем современный ES2020 код

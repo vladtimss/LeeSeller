@@ -177,6 +177,7 @@ function extractCsvFromZipGAS(zipBuffer: ArrayBuffer): string {
     const Utilities = (
         globalThis as {
             Utilities?: {
+                newBlob: (bytes: number[], contentType?: string) => { getBytes: () => number[] };
                 unzip: (blob: { getBytes: () => number[] }) => Array<{
                     getName: () => string;
                     getDataAsString: () => string;
@@ -196,17 +197,10 @@ function extractCsvFromZipGAS(zipBuffer: ArrayBuffer): string {
         bytes.push(view[i]);
     }
 
-    // Создаем Blob для Utilities.unzip
-    // В GAS Blob имеет другой интерфейс, используем unknown для обхода проверки типов
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-explicit-any
-    const BlobConstructor = (globalThis as unknown as { Blob?: new (bytes: number[]) => { getBytes: () => number[] } })
-        .Blob;
-
-    if (!BlobConstructor) {
-        throw new Error('Blob не доступен. Убедитесь, что код запущен в Google Apps Script окружении.');
-    }
-
-    const blob = new BlobConstructor(bytes);
+    // Создаем Blob для Utilities.unzip используя Utilities.newBlob()
+    // В GAS правильный способ создания Blob из байтов - через Utilities.newBlob()
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call
+    const blob = Utilities.newBlob(bytes, 'application/zip');
     const unzippedFiles = Utilities.unzip(blob);
 
     if (unzippedFiles.length === 0) {
