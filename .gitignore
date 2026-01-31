@@ -6,6 +6,9 @@
 # production
 /build
 /dist
+# Игнорируем все папки dist в любом месте проекта (например, dist-gas)
+**/dist*/
+dist*/
 
 # misc
 .env
