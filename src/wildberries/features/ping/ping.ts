@@ -1,6 +1,7 @@
 import { pingWBStore as pingWBStoreAPI } from '../../services/wb-api-service';
-import { logger } from '../../../common/helpers/logger';
+import { logger } from '../../../common/helpers/logs/logger';
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
+import { getRuntimeEnvironment } from '../../../common/helpers/runtime/runtime-env.helper';
 
 /**
  * Главная функция фичи ping для проверки подключения к WB API
@@ -8,6 +9,10 @@ import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
  * @throws Error если токен не найден в .env или произошла ошибка при запросе к API
  */
 export async function pingWBStore(storeIdentifier: WBStoreIdentifier): Promise<void> {
+    // Проверяем окружение выполнения перед запуском фичи
+    const runtimeEnv = getRuntimeEnvironment();
+    logger.info(`🔧 Окружение выполнения: ${runtimeEnv}`);
+
     const response = await pingWBStoreAPI(storeIdentifier);
 
     logger.success('✓ Успешно подключено к WB API');

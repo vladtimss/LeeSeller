@@ -1,4 +1,4 @@
-import { makeApiRequest, ApiRequestConfig } from '../../common/helpers/api-request.helper';
+import { makeApiRequest } from '../../common/helpers/api/api-request.helper';
 import { getWBAnalyticsConfig, getWBStoreToken } from '../helpers/wb.helpers';
 import { WBStoreIdentifier } from '../enums/wb-store-identifier.enum';
 import {
@@ -6,6 +6,7 @@ import {
     SalesFunnelProduct,
     SalesFunnelProductsResponse,
 } from '../features/wb-funnel/wb-funnel.types';
+import { ApiRequestConfig } from '../../common/helpers/api/api-request.types';
 
 /**
  * Базовый URL для Wildberries API

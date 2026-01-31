@@ -1,4 +1,4 @@
-import { logger } from '../common/helpers/logger';
+import { logger } from '../common/helpers/logs/logger';
 import { Marketplace } from '../common/enums/marketplace.enum';
 import { Feature } from '../wildberries/enums/wb-feature.enum';
 import { pingWBStore } from '../wildberries/features/ping/ping';
