@@ -239,10 +239,10 @@ function writeCsvFileOverwriteGAS(
  * Примеры обёрток под конкретные магазины
  * (запускать их удобнее из меню IDE Apps Script).
  */
-export function runPovar(): Promise<void> {
+export function runPovarStocks(): Promise<void> {
     return wbStocksByStore(WBStoreIdentifier.POVAR_NA_RAYONE);
 }
 
-export function runLeeshop(): Promise<void> {
+export function runLeeshopStocks(): Promise<void> {
     return wbStocksByStore(WBStoreIdentifier.LEESHOP);
 }

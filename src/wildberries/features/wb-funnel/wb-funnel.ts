@@ -67,10 +67,10 @@ export async function wbFunnelByStore(
  * Примеры обёрток под конкретные магазины
  * (запускать их удобнее из меню IDE Apps Script).
  */
-export function runPovar(): Promise<void> {
+export function runPovarFunnel(): Promise<void> {
     return wbFunnelByStore(WBStoreIdentifier.POVAR_NA_RAYONE);
 }
 
-export function runLeeshop(): Promise<void> {
+export function runLeeshopFunnel(): Promise<void> {
     return wbFunnelByStore(WBStoreIdentifier.LEESHOP);
 }
