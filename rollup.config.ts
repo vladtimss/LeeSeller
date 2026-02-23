@@ -15,7 +15,7 @@ function replaceNodeModules(): Plugin {
         name: 'replace-node-modules',
         resolveId(source) {
             // Заменяем Node.js модули на заглушки
-            if (['path', 'fs', 'os', 'crypto', 'node-fetch', 'dotenv'].includes(source)) {
+            if (['path', 'fs', 'os', 'crypto', 'node-fetch', 'dotenv', 'adm-zip'].includes(source)) {
                 return source; // Помечаем как resolved
             }
             return null;
@@ -53,7 +53,7 @@ function replaceNodeModules(): Plugin {
                     export default { config };
                 `;
             }
-            if (id === 'os' || id === 'crypto' || id === 'node-fetch') {
+            if (id === 'os' || id === 'crypto' || id === 'node-fetch' || id === 'adm-zip') {
                 return 'export default {};';
             }
             return null;
@@ -79,6 +79,9 @@ function generateRollupConfig(entryPoint: string): RollupOptions {
             file: path.join(outputDir, outputFileName),
             format: 'iife', // IIFE для плоского кода, но потом уберем обертку
             name: 'wbFunnel',
+            // Инлайним динамические импорты вместо создания отдельных чанков
+            // Это нужно для поддержки динамических импортов (например, adm-zip) в формате IIFE
+            inlineDynamicImports: true,
             // Не минифицируем для читаемости
             compact: false,
             // Генерируем современный ES2020 код

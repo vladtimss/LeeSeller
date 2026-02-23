@@ -115,3 +115,27 @@ export function getYesterdayDateMoscow(): string {
     
     return `${year}-${month}-${day}`;
 }
+
+/**
+ * Получает текущую дату по московскому времени (UTC+3) в формате YYYY-MM-DD
+ * @returns Текущая дата по МСК
+ */
+export function getCurrentDateMoscow(): string {
+    const now = new Date();
+    
+    // Получаем текущее время в UTC
+    const utcTime = now.getTime();
+    
+    // Добавляем 3 часа (МСК = UTC+3)
+    const moscowTime = utcTime + 3 * 60 * 60 * 1000;
+    
+    // Создаем дату в МСК
+    const moscowDate = new Date(moscowTime);
+    
+    // Форматируем в YYYY-MM-DD
+    const year = moscowDate.getUTCFullYear();
+    const month = String(moscowDate.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(moscowDate.getUTCDate()).padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+}

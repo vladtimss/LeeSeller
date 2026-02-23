@@ -4,6 +4,7 @@ import { Feature } from '../wildberries/enums/wb-feature.enum';
 import { pingWBStore } from '../wildberries/features/ping/ping';
 // eslint-disable-next-line max-len
 import { wbFunnelByStore } from '../wildberries/features/wb-funnel/wb-funnel';
+import { wbStocksByStore } from '../wildberries/features/wb-stocks/wb-stocks';
 import { WBStoreIdentifier } from '../wildberries/enums/wb-store-identifier.enum';
 import { parseArgs } from './executor.helpers';
 
@@ -23,8 +24,12 @@ async function runWBFeature(feature: Feature, store: WBStoreIdentifier): Promise
             await wbFunnelByStore(store);
             break;
         }
+        case Feature.WB_STOCKS: {
+            await wbStocksByStore(store);
+            break;
+        }
         default:
-            throw new Error(`Неизвестная фича для WB: ${feature}`);
+            throw new Error('Неизвестная фича для WB: ' + feature);
     }
 }
 
@@ -53,18 +58,18 @@ async function runFeature(marketplace: Marketplace, feature: Feature, store: WBS
 async function main(): Promise<void> {
     const { marketplace, feature, store } = parseArgs();
 
-    logger.info(`Запуск фичи "${feature}" для маркетплейса "${marketplace}"`);
+    logger.info('Запуск фичи "' + feature + '" для маркетплейса "' + marketplace + '"');
 
     try {
         await runFeature(marketplace, feature, store);
         logger.success('\n✓ Выполнение завершено');
     } catch (error) {
-        logger.error(`Ошибка: ${error instanceof Error ? error.message : String(error)}`);
+        logger.error('Ошибка: ' + (error instanceof Error ? error.message : String(error)));
         process.exit(1);
     }
 }
 
 main().catch((error) => {
-    logger.error(`Критическая ошибка: ${error instanceof Error ? error.message : String(error)}`);
+    logger.error('Критическая ошибка: ' + (error instanceof Error ? error.message : String(error)));
     process.exit(1);
 });
