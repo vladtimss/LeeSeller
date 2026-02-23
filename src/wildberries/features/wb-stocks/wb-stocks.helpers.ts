@@ -1,5 +1,5 @@
 import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
-import { getCurrentDateMoscow } from '../../../common/helpers/date/date-helpers';
+import { getYesterdayDateMoscow } from '../../../common/helpers/date/date-helpers';
 import { getStoreShortName } from '../../helpers/wb.helpers';
 import { prepareOutputDir, joinPath } from '../../../common/helpers/files/files.helper';
 import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
@@ -17,19 +17,42 @@ export interface SelectedPeriod {
 }
 
 /**
- * Определяет период для запроса: если не передан, использует текущую дату по МСК
+ * Определяет период для запроса: если не передан, использует период за неделю (7 дней) начиная со вчера по МСК
  * @param selectedPeriod - Опциональный период для запроса
- * @returns Период для запроса (start и end одинаковые, если не указано иное)
+ * @returns Период для запроса (start - 7 дней назад от вчера, end - вчера)
  */
 export function getPeriod(selectedPeriod?: SelectedPeriod): SelectedPeriod {
     if (selectedPeriod) {
         return selectedPeriod;
     }
 
-    const currentDate = getCurrentDateMoscow();
+    // Получаем вчерашнюю дату по МСК
+    const yesterdayDateStr = getYesterdayDateMoscow();
+    
+    // Парсим вчерашнюю дату
+    const yesterdayParts = yesterdayDateStr.split('-');
+    const yesterdayYear = parseInt(yesterdayParts[0], 10);
+    const yesterdayMonth = parseInt(yesterdayParts[1], 10) - 1; // месяц в Date начинается с 0
+    const yesterdayDay = parseInt(yesterdayParts[2], 10);
+    
+    // Создаем дату вчера в московском времени
+    const yesterday = new Date(Date.UTC(yesterdayYear, yesterdayMonth, yesterdayDay));
+    
+    // Вычисляем дату 7 дней назад (6 дней назад + вчера = 7 дней)
+    const weekAgo = new Date(yesterday);
+    weekAgo.setUTCDate(weekAgo.getUTCDate() - 6);
+    
+    // Форматируем даты в YYYY-MM-DD
+    const formatDate = (date: Date): string => {
+        const year = date.getUTCFullYear();
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+    
     return {
-        start: currentDate,
-        end: currentDate,
+        start: formatDate(weekAgo),
+        end: yesterdayDateStr,
     };
 }
 
