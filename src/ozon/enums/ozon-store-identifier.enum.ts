@@ -3,4 +3,5 @@
  */
 export enum OzonStoreIdentifier {
     LEESHOP = 'leeshop',
+    POVAR = 'povar',
 }

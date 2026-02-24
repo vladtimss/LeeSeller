@@ -13,6 +13,8 @@ function getClientIdEnvKey(storeIdentifier: OzonStoreIdentifier): string {
     switch (storeIdentifier) {
         case OzonStoreIdentifier.LEESHOP:
             return 'OZON_LEESHOP_CLIENT_ID';
+        case OzonStoreIdentifier.POVAR:
+            return 'OZON_POVAR_CLIENT_ID';
         default:
             throw new Error(`Неизвестный идентификатор магазина Ozon: ${storeIdentifier}`);
     }
@@ -25,6 +27,8 @@ function getApiKeyEnvKey(storeIdentifier: OzonStoreIdentifier): string {
     switch (storeIdentifier) {
         case OzonStoreIdentifier.LEESHOP:
             return 'OZON_LEESHOP_API_KEY';
+        case OzonStoreIdentifier.POVAR:
+            return 'OZON_POVAR_API_KEY';
         default:
             throw new Error(`Неизвестный идентификатор магазина Ozon: ${storeIdentifier}`);
     }

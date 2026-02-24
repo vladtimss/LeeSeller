@@ -64,14 +64,16 @@ function getStoreShortName(storeIdentifier: OzonStoreIdentifier): string {
     switch (storeIdentifier) {
         case OzonStoreIdentifier.LEESHOP:
             return 'lee';
+        case OzonStoreIdentifier.POVAR:
+            return 'povar';
         default:
             return storeIdentifier;
     }
 }
 
 /**
- * Путь к файлу CSV заказов: data/output/orders-ozon-{store}-{date}.csv
- * Для периода в один день — одна дата; для диапазона — orders-ozon-{store}-{since}--{to}.csv
+ * Путь к файлу CSV заказов: data/output/ozon-{store}-orders-{date}.csv
+ * Маркетплейс-магазин-метод. Для диапазона дат: ozon-{store}-orders-{since}--{to}.csv
  */
 export function getOzonOrdersFilePath(period: OzonOrdersPeriod, storeIdentifier: OzonStoreIdentifier): string {
     const outputDirResult = prepareOutputDir();
@@ -80,8 +82,8 @@ export function getOzonOrdersFilePath(period: OzonOrdersPeriod, storeIdentifier:
     const toStr = period.to.slice(0, 10);
     const fileName =
         sinceStr === toStr
-            ? `orders-ozon-${storeShort}-${sinceStr}.csv`
-            : `orders-ozon-${storeShort}-${sinceStr}--${toStr}.csv`;
+            ? `ozon-${storeShort}-orders-${sinceStr}.csv`
+            : `ozon-${storeShort}-orders-${sinceStr}--${toStr}.csv`;
     return joinPath(outputDirResult.pathOrId, fileName);
 }
 
