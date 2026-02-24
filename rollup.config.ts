@@ -71,14 +71,17 @@ function generateRollupConfig(entryPoint: string): RollupOptions {
     const featureDir = path.dirname(entryPath);
     const entryFileName = path.basename(entryPoint, path.extname(entryPoint));
     const outputDir = path.join(featureDir, 'dist-gas');
-    const outputFileName = `${entryFileName}.bundle.js`;
+    // Для GAS entry wb-funnel-gas выводим wb-funnel.bundle.js и глобальную переменную WBFunnel (как в Google Sheet)
+    const isWbFunnelGas = entryFileName === 'wb-funnel-gas';
+    const outputFileName = isWbFunnelGas ? 'wb-funnel.bundle.js' : `${entryFileName}.bundle.js`;
+    const iifeName = isWbFunnelGas ? 'WBFunnel' : 'wbFunnel';
 
     return {
         input: entryPoint,
         output: {
             file: path.join(outputDir, outputFileName),
-            format: 'iife', // IIFE для плоского кода, но потом уберем обертку
-            name: 'wbFunnel',
+            format: 'iife',
+            name: iifeName,
             // Инлайним динамические импорты вместо создания отдельных чанков
             // Это нужно для поддержки динамических импортов (например, adm-zip) в формате IIFE
             inlineDynamicImports: true,

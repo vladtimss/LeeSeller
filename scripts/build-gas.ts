@@ -44,24 +44,24 @@ try {
         cwd: process.cwd(),
     });
 
-    // Форматируем собранный файл
-    const outputPath = path.join(
-        path.dirname(entryPath),
-        'dist-gas',
-        `${path.basename(entryPoint, path.extname(entryPoint))}.bundle.js`,
-    );
+    // Путь к бандлу (для wb-funnel-gas entry Rollup пишет в wb-funnel.bundle.js — как в rollup.config)
+    const entryBasename = path.basename(entryPoint, path.extname(entryPoint));
+    const bundleFileName =
+        entryBasename === 'wb-funnel-gas' ? 'wb-funnel.bundle.js' : `${entryBasename}.bundle.js`;
+    const outputPath = path.join(path.dirname(entryPath), 'dist-gas', bundleFileName);
 
     console.log('📝 Форматирование бандла...');
-    // Сначала заменяем var на const
     execSync(`node scripts/format-bundle.js "${outputPath}"`, {
         stdio: 'inherit',
         cwd: process.cwd(),
     });
-    // Потом форматируем через prettier
-    execSync(`npx prettier --write "${outputPath}"`, {
-        stdio: 'inherit',
-        cwd: process.cwd(),
-    });
+    // Prettier не запускаем для wb-funnel.bundle.js — сохраняем точный формат (return { ... }, (function() {)
+    if (!outputPath.endsWith('wb-funnel.bundle.js')) {
+        execSync(`npx prettier --write "${outputPath}"`, {
+            stdio: 'inherit',
+            cwd: process.cwd(),
+        });
+    }
 
     console.log('✅ Сборка завершена успешно!');
 } catch (error) {

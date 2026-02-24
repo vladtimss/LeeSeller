@@ -11,7 +11,7 @@
         "wb:stocks:povar": "ts-node src/executor/executor.ts wb wb-stocks povar-na-rayone",
         "wb:stocks:leeshop": "ts-node src/executor/executor.ts wb wb-stocks leeshop",
         "build:gas": "ts-node scripts/build-gas.ts",
-        "build:wb-funnel": "ts-node scripts/build-gas.ts src/wildberries/features/wb-funnel/wb-funnel.ts",
+        "build:wb-funnel": "ts-node scripts/build-gas.ts src/wildberries/features/wb-funnel/wb-funnel-gas.ts",
         "build:wb-stocks": "ts-node scripts/build-gas.ts src/wildberries/features/wb-stocks/wb-stocks.ts",
         "build:ping": "ts-node scripts/build-gas.ts src/wildberries/features/ping/ping.ts",
         "lint": "eslint src src/executor",
