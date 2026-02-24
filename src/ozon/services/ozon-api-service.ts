@@ -2,6 +2,12 @@ import { makeApiRequest } from '../../common/helpers/api/api-request.helper';
 import type { OzonCredentials } from '../helpers/ozon.helpers';
 import type { ApiRequestConfig } from '../../common/helpers/api/api-request.types';
 import type { FboPostingListRequest, FboPostingListResponse } from '../features/ozon-fbo-orders/ozon-fbo-orders.types';
+import type {
+    OzonProductAttributesRequest,
+    OzonProductAttributesResponse,
+    OzonAnalyticsStocksRequest,
+    OzonAnalyticsStocksResponse,
+} from '../features/ozon-stocks/ozon-stocks.types';
 import { logger } from '../../common/helpers/logs/logger';
 
 const OZON_API_BASE_URL = 'https://api-seller.ozon.ru';
@@ -95,4 +101,38 @@ export async function fetchAllFboPostings(
     }
 
     return all;
+}
+
+/**
+ * Получает атрибуты товаров (в т.ч. SKU) — одна страница.
+ * POST /v4/product/info/attributes
+ */
+export async function fetchProductAttributesPage(
+    credentials: OzonCredentials,
+    request: OzonProductAttributesRequest,
+): Promise<OzonProductAttributesResponse> {
+    const config = getOzonApiConfig(credentials);
+    const path = '/v4/product/info/attributes';
+
+    return await makeApiRequest<OzonProductAttributesResponse>(config, path, {
+        method: 'POST',
+        body: JSON.stringify(request),
+    });
+}
+
+/**
+ * Запрашивает аналитику остатков по SKU
+ * POST /v1/analytics/stocks
+ */
+export async function fetchAnalyticsStocks(
+    credentials: OzonCredentials,
+    request: OzonAnalyticsStocksRequest,
+): Promise<OzonAnalyticsStocksResponse> {
+    const config = getOzonApiConfig(credentials);
+    const path = '/v1/analytics/stocks';
+
+    return await makeApiRequest<OzonAnalyticsStocksResponse>(config, path, {
+        method: 'POST',
+        body: JSON.stringify(request),
+    });
 }

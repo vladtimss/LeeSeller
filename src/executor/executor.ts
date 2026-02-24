@@ -9,6 +9,7 @@ import { WBStoreIdentifier } from '../wildberries/enums/wb-store-identifier.enum
 import { OzonFeature } from '../ozon/enums/ozon-feature.enum';
 import { OzonStoreIdentifier } from '../ozon/enums/ozon-store-identifier.enum';
 import { ozoFboOrdersByStore } from '../ozon/features/ozon-fbo-orders/ozon-fbo-orders';
+import { ozonStocksByStore } from '../ozon/features/ozon-stocks/ozon-stocks';
 import { parseArgs } from './executor.helpers';
 
 /**
@@ -50,6 +51,10 @@ async function runOzonFeature(
     switch (feature) {
         case OzonFeature.OZON_FBO_ORDERS: {
             await ozoFboOrdersByStore(store, periodArg);
+            break;
+        }
+        case OzonFeature.OZON_STOCKS: {
+            await ozonStocksByStore(store);
             break;
         }
         default:

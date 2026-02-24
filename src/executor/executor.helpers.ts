@@ -29,6 +29,7 @@ export function parseArgs(): {
         logger.info('Пример: npm run executor -- wb ping povar-na-rayone');
         logger.info('Пример: npm run executor -- ozon ozon-fbo-orders leeshop');
         logger.info('Пример (период): npm run executor -- ozon ozon-fbo-orders leeshop 2026-02-01 2026-02-22');
+        logger.info('Пример (остатки): npm run executor -- ozon ozon-stocks leeshop');
         process.exit(1);
     }
 

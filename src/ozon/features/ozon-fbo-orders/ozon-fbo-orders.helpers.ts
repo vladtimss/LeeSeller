@@ -1,5 +1,6 @@
 import { OzonStoreIdentifier } from '../../enums/ozon-store-identifier.enum';
 import { prepareOutputDir, joinPath } from '../../../common/helpers/files/files.helper';
+import { buildSemicolonCsvContent } from '../../helpers/ozon-csv.helper';
 import * as fs from 'fs';
 
 /**
@@ -88,36 +89,6 @@ export function getOzonOrdersFilePath(period: OzonOrdersPeriod, storeIdentifier:
 }
 
 /**
- * Экранирует значение для CSV с разделителем ";" (кавычки, точка с запятой, переносы)
- */
-function escapeSemicolonCsvValue(value: string | number | null | undefined): string {
-    if (value === null || value === undefined) {
-        return '';
-    }
-    const str = String(value);
-    if (str.includes('"') || str.includes(';') || str.includes('\n') || str.includes('\r')) {
-        return `"${str.replace(/"/g, '""')}"`;
-    }
-    return str;
-}
-
-/**
- * Собирает CSV с разделителем ";" (как в эталонном orders-ozon-lee.csv)
- */
-function buildSemicolonCsv(
-    headers: string[],
-    rows: (string | number)[][],
-): string {
-    const escape = (v: string | number): string => escapeSemicolonCsvValue(v);
-    const lines: string[] = [];
-    lines.push(headers.map(escape).join(';'));
-    for (const row of rows) {
-        lines.push(row.map(escape).join(';'));
-    }
-    return lines.join('\n') + '\n';
-}
-
-/**
  * Записывает CSV с разделителем ";" в файл (UTF-8)
  */
 export function writeOzonOrdersCsv(
@@ -125,6 +96,6 @@ export function writeOzonOrdersCsv(
     headers: string[],
     rows: (string | number)[][],
 ): void {
-    const content = buildSemicolonCsv(headers, rows);
+    const content = buildSemicolonCsvContent(headers, rows);
     fs.writeFileSync(filePath, content, 'utf-8');
 }
