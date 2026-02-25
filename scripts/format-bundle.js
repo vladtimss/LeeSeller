@@ -232,6 +232,89 @@ if (isWbFunnelGasBundle) {
             '    // Экспортируем функции для использования из глобальной области\n    return {\n        WBStoreIdentifier: WBStoreIdentifier,\n        wbStocksByStore: wbStocksByStore\n    };\n})();',
         );
     }
+} else if (
+    (fullPath.includes('ozon-funnel') && fullPath.endsWith('ozon-funnel.bundle.js')) ||
+    content.includes('OzonFunnel = (function')
+) {
+    // Ozon Funnel (FBO orders): IIFE, return { OzonStoreIdentifier, ozoFboOrdersByStore }, глобальные run*OzonFunnel
+    content = content.replace(/\bconst\s+OzonFunnel\s*=/g, 'var OzonFunnel =');
+    content = content.replace(/var OzonFunnel = \(function \(exports\) \{[\r\n]+\s*'use strict';[\r\n]+/, 'var OzonFunnel = (function() {\n');
+    content = content.replace(
+        /exports\.OzonStoreIdentifier = void 0;[\r\n]+\s*\(function \(OzonStoreIdentifier\)/,
+        'var OzonStoreIdentifier;\n    (function (OzonStoreIdentifier)',
+    );
+    content = content.replace(
+        /\}\)\(exports\.OzonStoreIdentifier \|\| \(exports\.OzonStoreIdentifier = \{\}\)\);/,
+        '})(OzonStoreIdentifier || (OzonStoreIdentifier = {}));',
+    );
+    content = content.replace(/\bexports\.OzonStoreIdentifier\b/g, 'OzonStoreIdentifier');
+    content = content.replace(
+        /( *)exports\.ozoFboOrdersByStore = ozoFboOrdersByStore;[\r\n]+[\r\n]+( *)return exports;[\r\n]+[\r\n]+\}\)\(\{\}\);?/,
+        '$1// Экспортируем для использования из глобальной области\n$1return {\n$1    OzonStoreIdentifier: OzonStoreIdentifier,\n$1    ozoFboOrdersByStore: ozoFboOrdersByStore\n$1};\n$2})();',
+    );
+    content = content.replace(
+        /( *)return \{ OzonStoreIdentifier: OzonStoreIdentifier, ozoFboOrdersByStore: ozoFboOrdersByStore \};[\r\n]+( *)\)\(\);/,
+        '$1// Экспортируем для использования из глобальной области\n$1return {\n$1    OzonStoreIdentifier: OzonStoreIdentifier,\n$1    ozoFboOrdersByStore: ozoFboOrdersByStore\n$1};\n$2})();',
+    );
+    content = content.replace(/var OzonFunnel = \(function\s+\)\(\)\s*\{/, 'var OzonFunnel = (function() {');
+    if (!content.trimStart().startsWith('// Изолированный модуль для ozon-funnel')) {
+        content = '// Изолированный модуль для ozon-funnel (FBO orders)\n' + content;
+    }
+    const ozonFunnelFooter = [
+        '',
+        '// Глобальные функции для запуска из Google Apps Script UI',
+        'function runPovarOzonFunnel() {',
+        '    return OzonFunnel.ozoFboOrdersByStore(OzonFunnel.OzonStoreIdentifier.POVAR);',
+        '}',
+        '',
+        'function runLeeshopOzonFunnel() {',
+        '    return OzonFunnel.ozoFboOrdersByStore(OzonFunnel.OzonStoreIdentifier.LEESHOP);',
+        '}',
+    ].join('\n');
+    if (!content.includes('function runLeeshopOzonFunnel()')) {
+        content = content.trimEnd() + '\n' + ozonFunnelFooter + '\n';
+    }
+} else if (
+    (fullPath.includes('ozon-stocks') && fullPath.endsWith('ozon-stocks.bundle.js')) ||
+    content.includes('OzonStocks = (function')
+) {
+    // Ozon Stocks: IIFE, return { OzonStoreIdentifier, ozonStocksByStore }, глобальные run*OzonStocks
+    content = content.replace(/\bconst\s+OzonStocks\s*=/g, 'var OzonStocks =');
+    content = content.replace(/var OzonStocks = \(function \(exports\) \{[\r\n]+\s*'use strict';[\r\n]+/, 'var OzonStocks = (function () {\n');
+    content = content.replace(
+        /exports\.OzonStoreIdentifier = void 0;[\r\n]+\s*\(function \(OzonStoreIdentifier\)/,
+        'var OzonStoreIdentifier;\n    (function (OzonStoreIdentifier)',
+    );
+    content = content.replace(
+        /\}\)\(exports\.OzonStoreIdentifier \|\| \(exports\.OzonStoreIdentifier = \{\}\)\);/,
+        '})(OzonStoreIdentifier || (OzonStoreIdentifier = {}));',
+    );
+    content = content.replace(/\bexports\.OzonStoreIdentifier\b/g, 'OzonStoreIdentifier');
+    content = content.replace(
+        /( *)exports\.ozonStocksByStore = ozonStocksByStore;[\r\n]+[\r\n]+( *)return exports;[\r\n]+[\r\n]+\}\)\(\{\}\);?/,
+        '$1// Экспортируем для использования из глобальной области\n$1return {\n$1    OzonStoreIdentifier: OzonStoreIdentifier,\n$1    ozonStocksByStore: ozonStocksByStore\n$1};\n$2})();',
+    );
+    content = content.replace(
+        /( *)return \{ OzonStoreIdentifier: OzonStoreIdentifier, ozonStocksByStore: ozonStocksByStore \};[\r\n]+( *)\)\(\);/,
+        '$1// Экспортируем для использования из глобальной области\n$1return {\n$1    OzonStoreIdentifier: OzonStoreIdentifier,\n$1    ozonStocksByStore: ozonStocksByStore\n$1};\n$2})();',
+    );
+    if (!content.trimStart().startsWith('// Изолированный модуль для ozon-stocks')) {
+        content = '// Изолированный модуль для ozon-stocks\n' + content;
+    }
+    const ozonStocksFooter = [
+        '',
+        '// Глобальные функции для запуска из Google Apps Script UI',
+        'function runPovarOzonStocks() {',
+        '    return OzonStocks.ozonStocksByStore(OzonStocks.OzonStoreIdentifier.POVAR);',
+        '}',
+        '',
+        'function runLeeshopOzonStocks() {',
+        '    return OzonStocks.ozonStocksByStore(OzonStocks.OzonStoreIdentifier.LEESHOP);',
+        '}',
+    ].join('\n');
+    if (!content.includes('function runLeeshopOzonStocks()')) {
+        content = content.trimEnd() + '\n' + ozonStocksFooter + '\n';
+    }
 } else if (content.includes('var wbFunnel = (function')) {
     // Убираем IIFE обертку для остальных бандлов: var wbFunnel = (function (exports) { ... })({});
     content = content.replace(/^var\s+wbFunnel\s*=\s*\(function\s*\([^)]*\)\s*\{\s*['"]use strict['"];\s*/m, '');
@@ -253,6 +336,12 @@ const formattedLines = lines.map((line, index) => {
         return line;
     }
     if (/^\s*var\s+WBStocks\s*=/.test(line)) {
+        return line;
+    }
+    if (/^\s*var\s+OzonFunnel\s*=/.test(line)) {
+        return line;
+    }
+    if (/^\s*var\s+OzonStocks\s*=/.test(line)) {
         return line;
     }
     if (index < lines.length - 1) {

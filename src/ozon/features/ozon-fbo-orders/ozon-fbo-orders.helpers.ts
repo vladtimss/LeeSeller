@@ -1,6 +1,7 @@
 import { OzonStoreIdentifier } from '../../enums/ozon-store-identifier.enum';
 import { prepareOutputDir, joinPath } from '../../../common/helpers/files/files.helper';
 import { buildSemicolonCsvContent } from '../../helpers/ozon-csv.helper';
+import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
 import * as fs from 'fs';
 
 /**
@@ -72,11 +73,21 @@ function getStoreShortName(storeIdentifier: OzonStoreIdentifier): string {
     }
 }
 
+/** Имена листов Google Sheets для GAS: ozon-funnel-{povar|leeshop}-data-v2 */
+const OZON_FUNNEL_SHEET_NAMES: Record<OzonStoreIdentifier, string> = {
+    [OzonStoreIdentifier.POVAR]: 'ozon-funnel-povar-data-v2',
+    [OzonStoreIdentifier.LEESHOP]: 'ozon-funnel-leeshop-data-v2',
+};
+
 /**
- * Путь к файлу CSV заказов: data/output/ozon-{store}-orders-{date}.csv
- * Маркетплейс-магазин-метод. Для диапазона дат: ozon-{store}-orders-{since}--{to}.csv
+ * Путь к файлу CSV заказов (Node) или имя листа для GAS.
+ * Node: data/output/ozon-{store}-orders-{date}.csv
+ * GAS: ozon-funnel-{povar|leeshop}-data-v2
  */
 export function getOzonOrdersFilePath(period: OzonOrdersPeriod, storeIdentifier: OzonStoreIdentifier): string {
+    if (!isNode()) {
+        return OZON_FUNNEL_SHEET_NAMES[storeIdentifier];
+    }
     const outputDirResult = prepareOutputDir();
     const storeShort = getStoreShortName(storeIdentifier);
     const sinceStr = period.since.slice(0, 10);

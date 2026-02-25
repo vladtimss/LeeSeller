@@ -44,10 +44,16 @@ try {
         cwd: process.cwd(),
     });
 
-    // Путь к бандлу (для wb-funnel-gas entry Rollup пишет в wb-funnel.bundle.js — как в rollup.config)
+    // Путь к бандлу (rollup.config задаёт имена: wb-funnel.bundle.js, ozon-funnel.bundle.js и т.д.)
     const entryBasename = path.basename(entryPoint, path.extname(entryPoint));
     const bundleFileName =
-        entryBasename === 'wb-funnel-gas' ? 'wb-funnel.bundle.js' : `${entryBasename}.bundle.js`;
+        entryBasename === 'wb-funnel-gas'
+            ? 'wb-funnel.bundle.js'
+            : entryBasename === 'ozon-fbo-orders-gas'
+                ? 'ozon-funnel.bundle.js'
+                : entryBasename === 'ozon-stocks-gas'
+                    ? 'ozon-stocks.bundle.js'
+                    : `${entryBasename}.bundle.js`;
     const outputPath = path.join(path.dirname(entryPath), 'dist-gas', bundleFileName);
 
     console.log('📝 Форматирование бандла...');
@@ -65,8 +71,13 @@ try {
         }
     }
 
-    // Prettier не запускаем для wb-funnel.bundle.js и wb-stocks.bundle.js — сохраняем точный формат (return { ... }, (function() {)
-    if (!outputPath.endsWith('wb-funnel.bundle.js') && !outputPath.endsWith('wb-stocks.bundle.js')) {
+    // Prettier не запускаем для GAS-бандлов — сохраняем точный формат (return { ... }, (function() {)
+    const isGasBundle =
+        outputPath.endsWith('wb-funnel.bundle.js') ||
+        outputPath.endsWith('wb-stocks.bundle.js') ||
+        outputPath.endsWith('ozon-funnel.bundle.js') ||
+        outputPath.endsWith('ozon-stocks.bundle.js');
+    if (!isGasBundle) {
         execSync(`npx prettier --write "${outputPath}"`, {
             stdio: 'inherit',
             cwd: process.cwd(),

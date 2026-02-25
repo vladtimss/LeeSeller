@@ -57,23 +57,46 @@ export async function makeApiRequestGAS<T = unknown>(
         options.payload = payload;
     }
 
-    let response: { getResponseCode: () => number; getContentText: () => string };
-    try {
-        response = UrlFetchApp.fetch(url, options);
-    } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error(`[${config.logPrefix}] UrlFetchApp.fetch error:`, errorMessage);
-        throw new Error(`${config.logPrefix} fetch failed: ${errorMessage}`);
+    const maxAttempts = 3;
+    const retryDelayMs = 2000;
+    let lastStatus = 0;
+    let lastData: unknown = null;
+    let lastText = '';
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        let response: { getResponseCode: () => number; getContentText: () => string };
+        try {
+            response = UrlFetchApp.fetch(url, options);
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            console.error(`[${config.logPrefix}] UrlFetchApp.fetch error:`, errorMessage);
+            throw new Error(`${config.logPrefix} fetch failed: ${errorMessage}`);
+        }
+
+        lastStatus = response.getResponseCode();
+        lastText = response.getContentText();
+        lastData = parseApiResponse<T>(lastText);
+
+        if (lastStatus >= 200 && lastStatus < 300) {
+            return lastData as T;
+        }
+
+        // 5xx — повторяем запрос (Ozon иногда отдаёт временный 500)
+        if (attempt < maxAttempts && lastStatus >= 500 && lastStatus < 600) {
+            const Utilities = (
+                globalThis as { Utilities?: { sleep: (ms: number) => void } }
+            ).Utilities;
+            if (Utilities) {
+                console.info(
+                    `[${config.logPrefix}] ${path} → ${lastStatus}, повтор через ${retryDelayMs / 1000} сек (попытка ${attempt}/${maxAttempts})`,
+                );
+                Utilities.sleep(retryDelayMs);
+            }
+            continue;
+        }
+
+        handleApiError(config.logPrefix, path, lastStatus, lastData);
     }
 
-    const statusCode = response.getResponseCode();
-    const text = response.getContentText();
-    const data = parseApiResponse<T>(text);
-
-    // Проверяем статус ответа (UrlFetchApp возвращает код даже при ошибках, если muteHttpExceptions = true)
-    if (statusCode < 200 || statusCode >= 300) {
-        handleApiError(config.logPrefix, path, statusCode, data);
-    }
-
-    return data;
+    handleApiError(config.logPrefix, path, lastStatus, lastData);
 }
