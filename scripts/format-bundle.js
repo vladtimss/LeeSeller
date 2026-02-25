@@ -72,6 +72,166 @@ if (isWbFunnelGasBundle) {
     if (!content.includes('function runLeeshopFunnel()')) {
         content = content.trimEnd() + '\n' + gasFooter + '\n';
     }
+} else if (
+    (fullPath.includes('wb-stocks') && fullPath.endsWith('wb-stocks.bundle.js')) ||
+    content.includes('WBStocks = (function')
+) {
+    // Приводим вывод Rollup к формату current-wb-stocks.js: IIFE, return { WBStoreIdentifier, wbStocksByStore }, глобальные runPovarStocks/runLeeshopStocks
+    content = content.replace(/\bconst\s+WBStocks\s*=/g, 'var WBStocks =');
+    content = content.replace(/var WBStocks = \(function \(exports\) \{[\r\n]+\s*'use strict';[\r\n]+/, 'var WBStocks = (function () {\n');
+    if (!content.trimStart().startsWith('// Изолированный модуль для wb-stocks')) {
+        content = '// Изолированный модуль для wb-stocks\n' + content;
+    }
+
+    // getYesterdayDateMoscow → getCurrentDateMoscow (как в current: без вычитания дня, только текущая дата по МСК)
+    content = content.replace(
+        /(\s*)\*\s*Получает вчерашнюю дату в формате YYYY-MM-DD[\s\S]*?@returns Дата вчерашнего дня\s*\*\/\s*\n\s*\*\s*Получает вчерашнюю дату по московскому времени[\s\S]*?@returns Дата вчерашнего дня по МСК\s*\*\/\s*\n\s*function getYesterdayDateMoscow\(\) \{\s*\n\s*const now = new Date\(\);\s*\n\s*\/\/ Получаем текущее время в UTC\s*\n\s*const utcTime = now\.getTime\(\);\s*\n\s*\/\/ Добавляем 3 часа \(МСК = UTC\+3\)\s*\n\s*const moscowTime = utcTime \+ 3 \* 60 \* 60 \* 1000;\s*\n\s*\/\/ Создаем дату в МСК \(сдвиг UTC\+3 уже применён в moscowTime\)\s*\n\s*const moscowDate = new Date\(moscowTime\);\s*\n\s*\/\/ Вычитаем 1 день в UTC \(как в dist — явно по календарю МСК\)\s*\n\s*moscowDate\.setUTCDate\(moscowDate\.getUTCDate\(\) - 1\);\s*\n\s*\/\/ Форматируем в YYYY-MM-DD/,
+        '$1/**\n$1 * Получает текущую дату по московскому времени (UTC+3) в формате YYYY-MM-DD\n$1 * @returns Текущая дата по МСК\n$1 */\n$1function getCurrentDateMoscow() {\n$1    const now = new Date();\n$1    // Получаем текущее время в UTC\n$1    const utcTime = now.getTime();\n$1    // Добавляем 3 часа (МСК = UTC+3)\n$1    const moscowTime = utcTime + 3 * 60 * 60 * 1000;\n$1    // Создаем дату в МСК\n$1    const moscowDate = new Date(moscowTime);\n$1    // Форматируем в YYYY-MM-DD',
+    );
+    // Альтернативный вариант без лишних JSDoc (если в бандле только один блок)
+    content = content.replace(
+        /function getYesterdayDateMoscow\(\) \{\s*\n\s*const now = new Date\(\);\s*\n\s*\/\/ Получаем текущее время в UTC[\s\S]*?\/\/ Вычитаем 1 день в UTC[^\n]*\n\s*moscowDate\.setUTCDate\(moscowDate\.getUTCDate\(\) - 1\);\s*\n\s*\/\/ Форматируем в YYYY-MM-DD/,
+        'function getCurrentDateMoscow() {\n        const now = new Date();\n        // Получаем текущее время в UTC\n        const utcTime = now.getTime();\n        // Добавляем 3 часа (МСК = UTC+3)\n        const moscowTime = utcTime + 3 * 60 * 60 * 1000;\n        // Создаем дату в МСК\n        const moscowDate = new Date(moscowTime);\n        // Форматируем в YYYY-MM-DD',
+    );
+    content = content.replace(
+        /\*\s*Получает вчерашнюю дату по московскому времени \(UTC\+3\)/g,
+        '* Получает текущую дату по московскому времени (UTC+3)',
+    );
+    content = content.replace(
+        /function getYesterdayDateMoscow\(\)/g,
+        'function getCurrentDateMoscow()',
+    );
+    content = content.replace(
+        /(\s*\/\/ Создаем дату в МСК \(сдвиг UTC\+3 уже применён в moscowTime\)\s*\n\s*const moscowDate = new Date\(moscowTime\);\s*\n\s*)\/\/ Вычитаем 1 день в UTC[^\n]*\n\s*moscowDate\.setUTCDate\(moscowDate\.getUTCDate\(\) - 1\);\s*\n(\s*\/\/ Форматируем)/g,
+        '$1$2',
+    );
+
+    // getPeriod: заменить тело на inline-логику из current (без вызова getYesterdayDateMoscow)
+    const getPeriodInlineBlock =
+        '\n        // Получаем вчерашнюю дату по МСК (используем логику из getCurrentDateMoscow)\n' +
+        '        const now = new Date();\n' +
+        '        const utcTime = now.getTime();\n' +
+        '        const moscowTime = utcTime + 3 * 60 * 60 * 1000; // МСК = UTC+3\n' +
+        '        const moscowDate = new Date(moscowTime);\n' +
+        '        moscowDate.setUTCDate(moscowDate.getUTCDate() - 1); // Вчера\n' +
+        '\n' +
+        '        const yesterdayYear = moscowDate.getUTCFullYear();\n' +
+        '        const yesterdayMonth = moscowDate.getUTCMonth();\n' +
+        '        const yesterdayDay = moscowDate.getUTCDate();\n' +
+        '\n' +
+        '        const yesterdayDateStr = `${yesterdayYear}-${String(yesterdayMonth + 1).padStart(2, \'0\')}-${String(yesterdayDay).padStart(2, \'0\')}`;\n' +
+        '\n' +
+        '        // Создаем дату вчера в UTC\n' +
+        '        const yesterday = new Date(Date.UTC(yesterdayYear, yesterdayMonth, yesterdayDay));\n' +
+        '\n' +
+        '        // Вычисляем дату 7 дней назад (6 дней назад + вчера = 7 дней)\n' +
+        '        const weekAgo = new Date(yesterday);\n' +
+        '        weekAgo.setUTCDate(weekAgo.getUTCDate() - 6);\n' +
+        '\n' +
+        '        // Форматируем даты в YYYY-MM-DD\n' +
+        '        const formatDate = (date) => {\n' +
+        '            const year = date.getUTCFullYear();\n' +
+        '            const month = String(date.getUTCMonth() + 1).padStart(2, \'0\');\n' +
+        '            const day = String(date.getUTCDate()).padStart(2, \'0\');\n' +
+        '            return `${year}-${month}-${day}`;\n' +
+        '        };\n' +
+        '\n' +
+        '        return {\n' +
+        '            start: formatDate(weekAgo),\n' +
+        '            end: yesterdayDateStr,\n' +
+        '        };';
+    content = content.replace(
+        /        \/\/ Получаем вчерашнюю дату по МСК\r?\n        const yesterdayDateStr = getYesterdayDateMoscow\(\);\r?\n        \/\/ Парсим вчерашнюю дату\r?\n        const yesterdayParts = yesterdayDateStr\.split\('-'\);\r?\n        const yesterdayYear = parseInt\(yesterdayParts\[0\], 10\);\r?\n        const yesterdayMonth = parseInt\(yesterdayParts\[1\], 10\) - 1; \/\/ месяц в Date начинается с 0\r?\n        const yesterdayDay = parseInt\(yesterdayParts\[2\], 10\);\r?\n        \/\/ Создаем дату вчера в московском времени\r?\n        const yesterday = new Date\(Date\.UTC\(yesterdayYear, yesterdayMonth, yesterdayDay\)\);\r?\n        \/\/ Вычисляем дату 7 дней назад \(6 дней назад \+ вчера = 7 дней\)\r?\n        const weekAgo = new Date\(yesterday\);\r?\n        weekAgo\.setUTCDate\(weekAgo\.getUTCDate\(\) - 6\);\r?\n        \/\/ Форматируем даты в YYYY-MM-DD\r?\n        const formatDate = \(date\) => \{\r?\n            const year = date\.getUTCFullYear\(\);\r?\n            const month = String\(date\.getUTCMonth\(\) \+ 1\)\.padStart\(2, '0'\);\r?\n            const day = String\(date\.getUTCDate\(\)\)\.padStart\(2, '0'\);\r?\n            return `\$\{year\}-\$\{month\}-\$\{day\}`;\r?\n        \};\r?\n        return \{\r?\n            start: formatDate\(weekAgo\),\r?\n            end: yesterdayDateStr,\r?\n        \};/,
+        getPeriodInlineBlock,
+    );
+
+    // В current два JSDoc блока перед getCurrentDateMoscow: первый "вчерашнюю/Дата вчерашнего дня", второй "текущую/Текущая дата по МСК"
+    content = content.replace(
+        /\*\s*@returns Дата вчерашнего дня по МСК/g,
+        '* @returns Текущая дата по МСК',
+    );
+    // В current два JSDoc блока перед getCurrentDateMoscow. Rollup уже даёт два блока из date-helpers — только правим второй на «текущую» и имя функции (не добавляем лишний первый блок).
+
+    // JSDoc getPeriod: как в current
+    content = content.replace(
+        /Определяет период для запроса: если не передан, использует период за неделю \(7 дней\) начиная со вчера по МСК\s*\n\s*\* @param[\s\S]*?@returns Период для запроса \(start - 7 дней назад от вчера, end - вчера\)/,
+        'Определяет период для запроса: если не передан, использует текущую дату по МСК\n     * @param selectedPeriod - Опциональный период для запроса\n     * @returns Период для запроса (start и end одинаковые, если не указано иное)',
+    );
+
+    // Очистка листа: комментарий и скобки как в current
+    content = content.replace(
+        /\/\/ Очищаем существующий лист \(как в dist: clear — содержимое и формат, строки остаются\)/,
+        '// Очищаем существующий лист',
+    );
+    content = content.replace(
+        /if \(lastRow > 0\) \{\r?\n\s+sheet\.clear\(\);  \/\/ ✅ Очищаем содержимое, но оставляем строки\r?\n\s+\}\r?\n\s+\}/,
+        'if (lastRow > 0) {\n            sheet.clear();  // ✅ Очищаем содержимое, но оставляем строки\n        }\n        }',
+    );
+    // Убедиться что у sheet.clear() есть комментарий как в current
+    content = content.replace(
+        /(\s+if \(lastRow > 0\) \{\s*\n\s+)sheet\.clear\(\);\s*(\n\s+\})/,
+        '$1sheet.clear();  // ✅ Очищаем содержимое, но оставляем строки$2',
+    );
+
+    // GAS unzip: добавить eslint комментарий как в current
+    content = content.replace(
+        /(const blob = Utilities\.newBlob\(bytes, 'application\/zip'\);)\s*\n(\s*const unzippedFiles = Utilities\.unzip\(blob\))/,
+        '$1\n        // eslint-disable-next-line @typescript-eslint/no-unsafe-argument, @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call\n$2',
+    );
+
+    // writeCsvFileGAS: формат второй строки как в current (много пробелов перед headers)
+    content = content.replace(
+        /function writeCsvFileGAS\(sheetName, \/\/ Имя листа[^\n]+\n\s+headers, rows, mode = WriteMode\.OVERWRITE\)/,
+        "function writeCsvFileGAS(sheetName, // Имя листа (например, 'wb-funnel-povar-data')\n                             headers, rows, mode = WriteMode.OVERWRITE)",
+    );
+
+    // getPeriod: пустая строка перед "// Создаем дату вчера в UTC" как в current
+    content = content.replace(
+        /(const yesterdayDateStr = `\$\{yesterdayYear\}-\$\{String\(yesterdayMonth \+ 1\)\.padStart\(2, '0'\)\}-\$\{String\(yesterdayDay\)\.padStart\(2, '0'\)\}`;)\n(        \/\/ Создаем дату вчера в UTC)/,
+        '$1\n\n$2',
+    );
+
+    // Хвост: заменить runPovarStocks/runLeeshopStocks внутри IIFE + admZip + exports на return + глобальные функции
+    const tailReplace =
+        '    // Экспортируем функции для использования из глобальной области\n' +
+        '    return {\n' +
+        '        WBStoreIdentifier: WBStoreIdentifier,\n' +
+        '        wbStocksByStore: wbStocksByStore\n' +
+        '    };\n' +
+        '})();\n' +
+        '\n' +
+        '// Глобальные функции для запуска из Google Apps Script UI\n' +
+        'function runPovarStocks() {\n' +
+        '    return WBStocks.wbStocksByStore(WBStocks.WBStoreIdentifier.POVAR_NA_RAYONE);\n' +
+        '}\n' +
+        '\n' +
+        'function runLeeshopStocks() {\n' +
+        '    return WBStocks.wbStocksByStore(WBStocks.WBStoreIdentifier.LEESHOP);\n' +
+        '}';
+    content = content.replace(
+        /    \/\*\*\s*\n\s*\*\s*Обертки для удобного вызова из Google Apps Script[\s\S]*?return exports;\s*\n\s*\n\}\)\(\{\}\);\s*$/,
+        tailReplace,
+    );
+
+    // Добавить глобальные функции в конец, если ещё нет (на случай другого формата вывода Rollup)
+    if (!content.includes('// Глобальные функции для запуска из Google Apps Script UI')) {
+        const gasFooterStocks = [
+            '',
+            '// Глобальные функции для запуска из Google Apps Script UI',
+            'function runPovarStocks() {',
+            '    return WBStocks.wbStocksByStore(WBStocks.WBStoreIdentifier.POVAR_NA_RAYONE);',
+            '}',
+            '',
+            'function runLeeshopStocks() {',
+            '    return WBStocks.wbStocksByStore(WBStocks.WBStoreIdentifier.LEESHOP);',
+            '}',
+        ].join('\n');
+        content = content.replace(/\}\)\(\);?(\s*)$/, '})();\n' + gasFooterStocks + '\n$1');
+        content = content.replace(
+            /\s*return \{\s*WBStoreIdentifier: WBStoreIdentifier,\s*wbStocksByStore: wbStocksByStore,\s*runPovarStocks: runPovarStocks,\s*runLeeshopStocks: runLeeshopStocks\s*\};?\s*\n\s*\}\)\(\);?/,
+            '    // Экспортируем функции для использования из глобальной области\n    return {\n        WBStoreIdentifier: WBStoreIdentifier,\n        wbStocksByStore: wbStocksByStore\n    };\n})();',
+        );
+    }
 } else if (content.includes('var wbFunnel = (function')) {
     // Убираем IIFE обертку для остальных бандлов: var wbFunnel = (function (exports) { ... })({});
     content = content.replace(/^var\s+wbFunnel\s*=\s*\(function\s*\([^)]*\)\s*\{\s*['"]use strict['"];\s*/m, '');
@@ -90,6 +250,9 @@ const formattedLines = lines.map((line, index) => {
         return line;
     }
     if (/^\s*var\s+WBFunnel\s*=/.test(line)) {
+        return line;
+    }
+    if (/^\s*var\s+WBStocks\s*=/.test(line)) {
         return line;
     }
     if (index < lines.length - 1) {

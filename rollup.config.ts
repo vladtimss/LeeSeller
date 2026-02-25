@@ -73,8 +73,13 @@ function generateRollupConfig(entryPoint: string): RollupOptions {
     const outputDir = path.join(featureDir, 'dist-gas');
     // Для GAS entry wb-funnel-gas выводим wb-funnel.bundle.js и глобальную переменную WBFunnel (как в Google Sheet)
     const isWbFunnelGas = entryFileName === 'wb-funnel-gas';
-    const outputFileName = isWbFunnelGas ? 'wb-funnel.bundle.js' : `${entryFileName}.bundle.js`;
-    const iifeName = isWbFunnelGas ? 'WBFunnel' : 'wbFunnel';
+    const isWbStocks = entryFileName === 'wb-stocks';
+    const outputFileName = isWbFunnelGas
+        ? 'wb-funnel.bundle.js'
+        : isWbStocks
+          ? 'wb-stocks.bundle.js'
+          : `${entryFileName}.bundle.js`;
+    const iifeName = isWbFunnelGas ? 'WBFunnel' : isWbStocks ? 'WBStocks' : 'wbFunnel';
 
     return {
         input: entryPoint,

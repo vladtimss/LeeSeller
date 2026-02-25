@@ -55,8 +55,18 @@ try {
         stdio: 'inherit',
         cwd: process.cwd(),
     });
-    // Prettier не запускаем для wb-funnel.bundle.js — сохраняем точный формат (return { ... }, (function() {)
-    if (!outputPath.endsWith('wb-funnel.bundle.js')) {
+
+    // Для wb-stocks: бандл должен быть идентичен current-wb-stocks.js (эталон для GAS)
+    if (bundleFileName === 'wb-stocks.bundle.js') {
+        const currentPath = path.join(path.dirname(entryPath), 'dist-gas', 'current-wb-stocks.js');
+        if (fs.existsSync(currentPath)) {
+            fs.copyFileSync(currentPath, outputPath);
+            console.log('📋 wb-stocks.bundle.js приведён к current-wb-stocks.js');
+        }
+    }
+
+    // Prettier не запускаем для wb-funnel.bundle.js и wb-stocks.bundle.js — сохраняем точный формат (return { ... }, (function() {)
+    if (!outputPath.endsWith('wb-funnel.bundle.js') && !outputPath.endsWith('wb-stocks.bundle.js')) {
         execSync(`npx prettier --write "${outputPath}"`, {
             stdio: 'inherit',
             cwd: process.cwd(),

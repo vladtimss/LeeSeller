@@ -159,7 +159,7 @@ function writeCsvFileOverwriteGAS(
                         getName: () => string;
                         getLastRow: () => number;
                         getMaxRows: () => number;
-                        deleteRows: (row: number, numRows: number) => void;
+                        clear: () => void;
                         getRange: (
                             row: number,
                             col: number,
@@ -171,7 +171,7 @@ function writeCsvFileOverwriteGAS(
                         getName: () => string;
                         getLastRow: () => number;
                         getMaxRows: () => number;
-                        deleteRows: (row: number, numRows: number) => void;
+                        clear: () => void;
                         getRange: (
                             row: number,
                             col: number,
@@ -200,10 +200,10 @@ function writeCsvFileOverwriteGAS(
     if (!sheet) {
         sheet = spreadsheet.insertSheet(sheetName);
     } else {
-        // Очищаем существующий лист
+        // Очищаем существующий лист (как в dist: clear — содержимое и формат, строки остаются)
         const lastRow = sheet.getLastRow();
         if (lastRow > 0) {
-            sheet.deleteRows(1, lastRow);
+            sheet.clear();
         }
     }
 
