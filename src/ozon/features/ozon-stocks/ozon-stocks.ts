@@ -1,5 +1,5 @@
 import { OzonStoreIdentifier } from '../../enums/ozon-store-identifier.enum';
-import { getOzonCredentials } from '../../helpers/ozon.helpers';
+import { getOzonCredentials, getOzonStoreDisplayName } from '../../helpers/ozon.helpers';
 import { fetchProductAttributesPage, fetchAnalyticsStocks } from '../../services/ozon-api-service';
 import type { OzonProductAttributesItem, OzonAnalyticsStocksItem } from './ozon-stocks.types';
 import { adaptAnalyticsStockToCsvRow, getOzonStocksCsvHeaders } from './adapters/ozon-stocks.adapter';
@@ -103,9 +103,23 @@ export async function ozonStocksByStore(storeIdentifier: OzonStoreIdentifier): P
     }
 
     // 3. Формируем строки CSV
-    const allRows: (string | number)[][] = allAnalytics.map((item) => adaptAnalyticsStockToCsvRow(item));
+    const baseRows: (string | number)[][] = allAnalytics.map((item) => adaptAnalyticsStockToCsvRow(item));
 
-    const headers = getOzonStocksCsvHeaders();
+    const baseHeaders = getOzonStocksCsvHeaders();
+    const headers: string[] = ['Магазин', 'Дата выгрузки', ...baseHeaders];
+
+    const storeName = getOzonStoreDisplayName(storeIdentifier);
+    const exportDate = new Date();
+    const dd = String(exportDate.getDate()).padStart(2, '0');
+    const mm = String(exportDate.getMonth() + 1).padStart(2, '0');
+    const yyyy = exportDate.getFullYear();
+    const hours = exportDate.getHours(); // без ведущего нуля
+    const minutes = String(exportDate.getMinutes()).padStart(2, '0');
+    const seconds = String(exportDate.getSeconds()).padStart(2, '0');
+    const exportTimestamp = `${dd}.${mm}.${yyyy} ${hours}:${minutes}:${seconds}`;
+
+    const allRows: (string | number)[][] = baseRows.map((row) => [storeName, exportTimestamp, ...row]);
+
     const filePathOrSheetName = getOzonStocksFilePath(storeIdentifier);
 
     if (isNode()) {
@@ -171,21 +185,52 @@ function writeOzonStocksCsvToSheetGAS(
     let sheet = spreadsheet.getSheetByName(sheetName);
     if (!sheet) {
         sheet = spreadsheet.insertSheet(sheetName);
-    } else {
-        const lastRow = sheet.getLastRow();
-        if (lastRow > 0) {
-            sheet.clear();
-        }
     }
 
     const normalize = (v: string | number): string | number => (v === null || v === undefined ? '' : v);
-    const normalizedRows = rows.map((row) => row.map(normalize));
 
+    const lastRow = sheet.getLastRow();
+    const lastCol = headers.length;
+
+    // Обновляем заголовок (первая строка)
     if (headers.length > 0) {
         sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     }
-    if (normalizedRows.length > 0) {
-        sheet.getRange(2, 1, normalizedRows.length, headers.length).setValues(normalizedRows);
+
+    if (rows.length === 0) {
+        // Нечего добавлять — просто оставляем заголовок и существующие данные других магазинов как есть
+        return;
+    }
+
+    const normalizedRows = rows.map((row) => row.map(normalize));
+
+    const STORE_COL = 1; // "Магазин"
+    const targetStore = String(normalizedRows[0][STORE_COL - 1] ?? '');
+
+    const dataStartRow = 2;
+    const existingLastRow = sheet.getLastRow();
+    let existingRows: (string | number)[][] = [];
+
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        existingRows = sheet.getRange(dataStartRow, 1, numExisting, lastCol).getValues() as (string | number)[][];
+    }
+
+    const filteredExisting = existingRows.filter((row) => {
+        const storeCell = String(row[STORE_COL - 1] ?? '');
+        return storeCell !== targetStore;
+    });
+
+    const combined = [...filteredExisting, ...normalizedRows];
+
+    // очищаем старые данные
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        sheet.getRange(dataStartRow, 1, numExisting, lastCol).clearContent();
+    }
+
+    if (combined.length > 0) {
+        sheet.getRange(dataStartRow, 1, combined.length, lastCol).setValues(combined);
     }
 
     const Logger = (globalThis as { Logger?: { log: (message: string) => void } }).Logger;

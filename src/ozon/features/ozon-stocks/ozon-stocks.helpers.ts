@@ -4,11 +4,8 @@ import { buildSemicolonCsvContent } from '../../helpers/ozon-csv.helper';
 import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
 import * as fs from 'fs';
 
-/** Имена листов Google Sheets для GAS: ozon-stocks-{povar|leeshop}-data-v2 */
-const OZON_STOCKS_SHEET_NAMES: Record<OzonStoreIdentifier, string> = {
-    [OzonStoreIdentifier.POVAR]: 'ozon-stocks-povar-data-v2',
-    [OzonStoreIdentifier.LEESHOP]: 'ozon-stocks-leeshop-data-v2',
-};
+/** Имя листа Google Sheets для GAS (общий лист по обоим магазинам) */
+const OZON_STOCKS_SHEET_NAME = 'ozon-stocks-data';
 
 function getStoreShortName(storeIdentifier: OzonStoreIdentifier): string {
     switch (storeIdentifier) {
@@ -33,11 +30,11 @@ function getTodayDate(): string {
 /**
  * Путь к файлу CSV остатков (Node) или имя листа для GAS.
  * Node: data/output/ozon-{store}-stocks-{date}.csv
- * GAS: ozon-stocks-{povar|leeshop}-data-v2
+ * GAS: ozon-stocks-data (общий лист с колонкой \"Магазин\")
  */
 export function getOzonStocksFilePath(storeIdentifier: OzonStoreIdentifier): string {
     if (!isNode()) {
-        return OZON_STOCKS_SHEET_NAMES[storeIdentifier];
+        return OZON_STOCKS_SHEET_NAME;
     }
     const outputDirResult = prepareOutputDir();
     const storeShort = getStoreShortName(storeIdentifier);

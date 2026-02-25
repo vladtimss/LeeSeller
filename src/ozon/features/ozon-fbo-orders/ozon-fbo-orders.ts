@@ -1,5 +1,5 @@
 import { OzonStoreIdentifier } from '../../enums/ozon-store-identifier.enum';
-import { getOzonCredentials } from '../../helpers/ozon.helpers';
+import { getOzonCredentials, getOzonStoreDisplayName } from '../../helpers/ozon.helpers';
 import { fetchAllFboPostings } from '../../services/ozon-api-service';
 import { adaptFboPostingToOrderCsvRows } from './adapters/ozon-fbo-orders.adapter';
 import { getOzonOrdersCsvHeaders } from './adapters/ozon-fbo-orders.adapter';
@@ -11,6 +11,7 @@ import {
 } from './ozon-fbo-orders.helpers';
 import { logger } from '../../../common/helpers/logs/logger';
 import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
+import { getWeekNumber, extractYear, extractMonth } from '../../../common/helpers/date/date-helpers';
 
 /**
  * Выгружает заказы FBO за период и сохраняет CSV в формате orders-ozon-lee.csv
@@ -56,15 +57,48 @@ export async function ozoFboOrdersByStore(
         allRows.push(...rows);
     }
 
-    const headers = getOzonOrdersCsvHeaders();
+    const baseHeaders = getOzonOrdersCsvHeaders();
+    const headers: string[] = [
+        'Магазин',
+        'Принят в обработку, год',
+        'Принят в обработку, мес',
+        'Принят в обработку, нед',
+        'Принят в обработку, дата',
+        ...baseHeaders,
+    ];
+    const storeName = getOzonStoreDisplayName(storeIdentifier);
+
+    const enhancedRows: (string | number)[][] = allRows.map((row) => {
+        const acceptedStr = typeof row[2] === 'string' ? (row[2] as string) : '';
+        if (!acceptedStr) {
+            return [storeName, '', '', '', '', ...row];
+        }
+
+        const [datePart] = acceptedStr.split(' ');
+        const parts = datePart.split('.');
+        if (parts.length !== 3) {
+            return [storeName, '', '', '', '', ...row];
+        }
+
+        const [dayStr, monthStr, yearStr] = parts;
+        const isoDate = `${yearStr}-${monthStr}-${dayStr}`;
+
+        const year = extractYear(isoDate);
+        const month = extractMonth(isoDate);
+        const week = getWeekNumber(isoDate);
+        const displayDate = `${dayStr}.${monthStr}.${yearStr}`;
+
+        return [storeName, year, month, week, displayDate, ...row];
+    });
+
     const filePathOrSheetName = getOzonOrdersFilePath(period, storeIdentifier);
 
     if (isNode()) {
-        writeOzonOrdersCsv(filePathOrSheetName, headers, allRows);
-        logger.info(`✅ CSV сохранён: ${filePathOrSheetName} (${allRows.length} строк)`);
+        writeOzonOrdersCsv(filePathOrSheetName, headers, enhancedRows);
+        logger.info(`✅ CSV сохранён: ${filePathOrSheetName} (${enhancedRows.length} строк)`);
     } else {
-        writeOzonOrdersCsvToSheetGAS(filePathOrSheetName, headers, allRows);
-        logger.info(`✅ Данные записаны в лист: ${filePathOrSheetName} (${allRows.length} строк)`);
+        writeOzonOrdersCsvToSheetGAS(filePathOrSheetName, headers, enhancedRows);
+        logger.info(`✅ Данные записаны в лист: ${filePathOrSheetName} (${enhancedRows.length} строк)`);
     }
 
     logger.success('✓ Выполнение завершено успешно');
@@ -122,21 +156,60 @@ function writeOzonOrdersCsvToSheetGAS(
     let sheet = spreadsheet.getSheetByName(sheetName);
     if (!sheet) {
         sheet = spreadsheet.insertSheet(sheetName);
-    } else {
-        const lastRow = sheet.getLastRow();
-        if (lastRow > 0) {
-            sheet.clear();
-        }
     }
 
     const normalize = (v: string | number): string | number => (v === null || v === undefined ? '' : v);
-    const normalizedRows = rows.map((row) => row.map(normalize));
 
+    const lastRow = sheet.getLastRow();
+    const lastCol = headers.length;
+
+    // Обновляем заголовок (первая строка)
     if (headers.length > 0) {
         sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     }
-    if (normalizedRows.length > 0) {
-        sheet.getRange(2, 1, normalizedRows.length, headers.length).setValues(normalizedRows);
+
+    // Если нет данных в rows — просто заголовок
+    if (rows.length === 0) {
+        if (lastRow > 1) {
+            // очищаем все данные ниже заголовка
+            sheet.getRange(2, 1, lastRow - 1, lastCol).clearContent();
+        }
+        return;
+    }
+
+    const normalizedRows = rows.map((row) => row.map(normalize));
+
+    // Для логики фильтрации нам нужны значения Магазин и Принят в обработку, дата
+    const STORE_COL = 1; // "Магазин"
+    const DATE_COL = 5; // "Принят в обработку, дата"
+    const targetStore = String(normalizedRows[0][STORE_COL - 1] ?? '');
+    const targetDate = String(normalizedRows[0][DATE_COL - 1] ?? '');
+
+    const dataStartRow = 2;
+    const existingLastRow = sheet.getLastRow();
+    let existingRows: (string | number)[][] = [];
+
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        existingRows = sheet.getRange(dataStartRow, 1, numExisting, lastCol).getValues() as (string | number)[][];
+    }
+
+    const filteredExisting = existingRows.filter((row) => {
+        const storeCell = String(row[STORE_COL - 1] ?? '');
+        const dateCell = String(row[DATE_COL - 1] ?? '');
+        return !(storeCell === targetStore && dateCell === targetDate);
+    });
+
+    const combined = [...filteredExisting, ...normalizedRows];
+
+    // очищаем старые данные
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        sheet.getRange(dataStartRow, 1, numExisting, lastCol).clearContent();
+    }
+
+    if (combined.length > 0) {
+        sheet.getRange(dataStartRow, 1, combined.length, lastCol).setValues(combined);
     }
 
     const Logger = (globalThis as { Logger?: { log: (message: string) => void } }).Logger;

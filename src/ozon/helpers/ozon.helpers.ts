@@ -45,3 +45,17 @@ export function getOzonCredentials(storeIdentifier: OzonStoreIdentifier): OzonCr
     const apiKey = getEnvVariableRequired(getApiKeyEnvKey(storeIdentifier));
     return { clientId, apiKey };
 }
+
+/**
+ * Отображаемое имя магазина для CSV/Google Sheets (Povar / Leeshop).
+ */
+export function getOzonStoreDisplayName(storeIdentifier: OzonStoreIdentifier): string {
+    switch (storeIdentifier) {
+        case OzonStoreIdentifier.POVAR:
+            return 'Povar';
+        case OzonStoreIdentifier.LEESHOP:
+            return 'Leeshop';
+        default:
+            return String(storeIdentifier);
+    }
+}
