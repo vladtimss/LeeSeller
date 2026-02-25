@@ -77,8 +77,8 @@ function generateRollupConfig(entryPoint: string): RollupOptions {
     const outputFileName = isWbFunnelGas
         ? 'wb-funnel.bundle.js'
         : isWbStocks
-          ? 'wb-stocks.bundle.js'
-          : `${entryFileName}.bundle.js`;
+            ? 'wb-stocks.bundle.js'
+            : `${entryFileName}.bundle.js`;
     const iifeName = isWbFunnelGas ? 'WBFunnel' : isWbStocks ? 'WBStocks' : 'wbFunnel';
 
     return {
