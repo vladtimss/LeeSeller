@@ -56,6 +56,53 @@ export function getPeriod(selectedPeriod?: SelectedPeriod): SelectedPeriod {
     };
 }
 
+/** Интервал между запросами на создание отчётов (лимит API: 3 запроса / 1 мин, интервал 20 сек). */
+export const WB_STOCKS_REPORT_REQUEST_INTERVAL_MS = 20000;
+
+/**
+ * Период за 28 дней (конец = вчера по МСК), для второго отчёта OrdersCount/OrdersSum за 28 дней.
+ * @param selectedPeriod - Опциональный период; если передан, end берётся из него, start = end - 27 дней
+ */
+export function getPeriod28(selectedPeriod?: SelectedPeriod): SelectedPeriod {
+    const base = getPeriod(selectedPeriod);
+    const endParts = base.end.split('-');
+    const endDate = new Date(
+        Date.UTC(
+            parseInt(endParts[0], 10),
+            parseInt(endParts[1], 10) - 1,
+            parseInt(endParts[2], 10),
+        ),
+    );
+    const start28 = new Date(endDate);
+    start28.setUTCDate(start28.getUTCDate() - 27);
+    const formatDate = (d: Date): string => {
+        const y = d.getUTCFullYear();
+        const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+        const day = String(d.getUTCDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    };
+    return { start: formatDate(start28), end: base.end };
+}
+
+/**
+ * Задержка в мс (Node: setTimeout, GAS: Utilities.sleep). Для соблюдения лимитов API между запросами.
+ */
+export function sleepMs(ms: number): Promise<void> {
+    if (isNode()) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+    const Utilities = (
+        globalThis as { Utilities?: { sleep: (milliseconds: number) => void } }
+    ).Utilities;
+    if (!Utilities) {
+        throw new Error('Utilities не доступен. Убедитесь, что код запущен в Google Apps Script окружении.');
+    }
+    return new Promise((resolve) => {
+        Utilities.sleep(ms);
+        resolve();
+    });
+}
+
 /**
  * Генерирует UUID для идентификатора задачи отчета
  * В Node.js использует crypto.randomUUID(), в GAS - Utilities.getUuid()
