@@ -66,3 +66,17 @@ export function getStoreShortName(storeIdentifier: WBStoreIdentifier): string {
             return storeIdentifier;
     }
 }
+
+/**
+ * Отображаемое имя магазина для CSV/Google Sheets (Povar / Leeshop).
+ */
+export function getWBStoreDisplayName(storeIdentifier: WBStoreIdentifier): string {
+    switch (storeIdentifier) {
+        case WBStoreIdentifier.POVAR_NA_RAYONE:
+            return 'Povar';
+        case WBStoreIdentifier.LEESHOP:
+            return 'Leeshop';
+        default:
+            return String(storeIdentifier);
+    }
+}

@@ -134,8 +134,8 @@ export function getWBStocksFilePath(period: SelectedPeriod, storeIdentifier: WBS
     if (isNode()) {
         return joinPath(outputDirResult.pathOrId, fileName);
     } else {
-        // В GAS возвращаем имя листа в формате: wb-{storeShortName}-stocks
-        return 'wb-' + storeShortName + '-stocks';
+        // В GAS — единый лист для всех магазинов
+        return 'wb-stocks-data';
     }
 }
 

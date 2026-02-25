@@ -18,6 +18,7 @@ import { StockHistoryReportRequest } from './wb-stocks.types';
 import { writeCsvFile } from '../../../common/helpers/files/files.helper';
 import { WriteMode } from '../../../common/helpers/files/files.types';
 import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
+import { getWBStoreDisplayName } from '../../helpers/wb.helpers';
 
 /**
  * Главная функция фичи wb-stocks
@@ -87,16 +88,27 @@ export async function wbStocksByStore(
 
         logger.info('📊 Получено строк данных: ' + rows.length);
 
-        // 9. Формируем путь к файлу и сохраняем CSV
-        const filePath = getWBStocksFilePath(period, storeIdentifier);
+        // 9. Формируем путь к файлу / имя листа и сохраняем
+        const filePathOrSheetName = getWBStocksFilePath(period, storeIdentifier);
+        const storeName = getWBStoreDisplayName(storeIdentifier);
+
+        const exportDate = new Date();
+        const dd = String(exportDate.getDate()).padStart(2, '0');
+        const mm = String(exportDate.getMonth() + 1).padStart(2, '0');
+        const yyyy = exportDate.getFullYear();
+        const hours = exportDate.getHours();
+        const minutes = String(exportDate.getMinutes()).padStart(2, '0');
+        const seconds = String(exportDate.getSeconds()).padStart(2, '0');
+        const exportTimestamp = `${dd}.${mm}.${yyyy} ${hours}:${minutes}:${seconds}`;
+
         if (isNode()) {
-            // Для Node.js сохраняем как есть в файл
-            writeCsvFile(filePath, headers, rows, WriteMode.OVERWRITE);
-            logger.info('✅ CSV файл сохранен: ' + filePath + ' (' + rows.length + ' строк)');
+            writeCsvFile(filePathOrSheetName, headers, rows, WriteMode.OVERWRITE);
+            logger.info('✅ CSV файл сохранен: ' + filePathOrSheetName + ' (' + rows.length + ' строк)');
         } else {
-            // Для GAS перезаписываем лист полностью
-            writeCsvFileOverwriteGAS(filePath, headers, rows);
-            logger.info('✅ CSV данные сохранены в лист: ' + filePath + ' (' + rows.length + ' строк)');
+            const sheetHeaders = ['Магазин', 'Дата выгрузки', ...headers];
+            const allRows = rows.map((row) => [storeName, exportTimestamp, ...row]);
+            writeWBStocksToSheetGAS(filePathOrSheetName, sheetHeaders, allRows, storeName);
+            logger.info('✅ Данные записаны в лист: ' + filePathOrSheetName + ' (' + allRows.length + ' строк)');
         }
 
         logger.success('✓ Выполнение завершено успешно');
@@ -142,42 +154,43 @@ function parseCsvLine(line: string): string[] {
 }
 
 /**
- * Перезаписывает данные в Google Sheets лист для GAS окружения
- * Полностью очищает лист и записывает новые данные
+ * Записывает данные остатков в лист wb-stocks-data для GAS: удаляет строки по магазину, дописывает новые в конец.
  */
-function writeCsvFileOverwriteGAS(
+function writeWBStocksToSheetGAS(
     sheetName: string,
     headers: string[],
     rows: (string | number | null | undefined)[][],
+    targetStore: string,
 ): void {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const SpreadsheetApp = (
         globalThis as {
             SpreadsheetApp?: {
                 getActiveSpreadsheet: () => {
                     getSheetByName: (name: string) => {
-                        getName: () => string;
                         getLastRow: () => number;
-                        getMaxRows: () => number;
-                        clear: () => void;
                         getRange: (
                             row: number,
                             col: number,
                             numRows: number,
                             numCols: number,
-                        ) => { setValues: (values: (string | number)[][]) => void };
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number)[][];
+                            clearContent: () => void;
+                        };
                     } | null;
                     insertSheet: (name: string) => {
-                        getName: () => string;
                         getLastRow: () => number;
-                        getMaxRows: () => number;
-                        clear: () => void;
                         getRange: (
                             row: number,
                             col: number,
                             numRows: number,
                             numCols: number,
-                        ) => { setValues: (values: (string | number)[][]) => void };
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number)[][];
+                            clearContent: () => void;
+                        };
                     };
                 };
             };
@@ -195,42 +208,53 @@ function writeCsvFileOverwriteGAS(
         );
     }
 
-    // Получаем или создаем лист
     let sheet = spreadsheet.getSheetByName(sheetName);
     if (!sheet) {
         sheet = spreadsheet.insertSheet(sheetName);
-    } else {
-        // Очищаем существующий лист (как в dist: clear — содержимое и формат, строки остаются)
-        const lastRow = sheet.getLastRow();
-        if (lastRow > 0) {
-            sheet.clear();
-        }
     }
 
-    // Нормализуем данные для записи
-    const normalizeValue = (value: string | number | null | undefined): string | number => {
-        if (value === null || value === undefined) {
-            return '';
-        }
-        return value;
-    };
+    const normalize = (v: string | number | null | undefined): string | number =>
+        v === null || v === undefined ? '' : v;
+    const lastCol = headers.length;
+    const dataStartRow = 2;
 
-    const normalizedRows = rows.map((row) => row.map((value) => normalizeValue(value)));
-
-    // Записываем заголовки
     if (headers.length > 0) {
         sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     }
 
-    // Записываем данные
-    if (normalizedRows.length > 0) {
-        sheet.getRange(2, 1, normalizedRows.length, headers.length).setValues(normalizedRows);
+    const normalizedRows = rows.map((row) => row.map((v) => normalize(v))) as (string | number)[][];
+    const existingLastRow = sheet.getLastRow();
+    let existingRows: (string | number)[][] = [];
+
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        existingRows = sheet
+            .getRange(dataStartRow, 1, numExisting, lastCol)
+            .getValues() as (string | number)[][];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const Logger = (globalThis as { Logger?: { log: (message: string, ...args: unknown[]) => void } }).Logger;
+    const filteredExisting = existingRows.filter((row) => {
+        const storeCell = String(row[0] ?? '').trim();
+        if (!storeCell) {
+            return true;
+        }
+        return storeCell !== targetStore;
+    });
+
+    const combined = [...filteredExisting, ...normalizedRows];
+
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        sheet.getRange(dataStartRow, 1, numExisting, lastCol).clearContent();
+    }
+
+    if (combined.length > 0) {
+        sheet.getRange(dataStartRow, 1, combined.length, lastCol).setValues(combined);
+    }
+
+    const Logger = (globalThis as { Logger?: { log: (message: string) => void } }).Logger;
     if (Logger) {
-        Logger.log('✅ Данные успешно перезаписаны в лист: ' + sheet.getName());
+        Logger.log('✅ Данные записаны в лист: ' + sheetName);
     }
 }
 

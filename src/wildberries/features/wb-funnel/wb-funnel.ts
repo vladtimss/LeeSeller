@@ -6,6 +6,8 @@ import { adaptWBFunnelToCSVFormat } from './adapters/wb-funnel.adapter';
 import { WB_FUNNEL_HEADERS } from './adapters/wb-funnel.headers.const';
 import { getRuntimeEnvironment } from '../../../common/helpers/runtime/runtime-env.helper';
 import { WriteMode } from '../../../common/helpers/files/files.types';
+import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
+import { getWBStoreDisplayName } from '../../helpers/wb.helpers';
 
 /**
  * Главная функция фичи wb-funnel
@@ -41,14 +43,23 @@ export async function wbFunnelByStore(
         logger.info('📊 Преобразование данных для CSV...');
         const csvRows = adaptWBFunnelToCSVFormat(products);
 
-        // 4. Формируем путь к файлу и сохраняем CSV
-        const filePath = getWBFunnelFilePath(period, storeIdentifier);
+        // 4. Формируем путь к файлу / имя листа и сохраняем
+        const filePathOrSheetName = getWBFunnelFilePath(period, storeIdentifier);
+        const storeName = getWBStoreDisplayName(storeIdentifier);
+
         try {
-            writeCsvFile(filePath, WB_FUNNEL_HEADERS, csvRows, WriteMode.OVERWRITE);
-            logger.info(`✅ CSV файл сохранен: ${filePath} (${csvRows.length} строк)`);
+            if (isNode()) {
+                writeCsvFile(filePathOrSheetName, WB_FUNNEL_HEADERS, csvRows, WriteMode.OVERWRITE);
+                logger.info(`✅ CSV файл сохранен: ${filePathOrSheetName} (${csvRows.length} строк)`);
+            } else {
+                const headers = ['Магазин', ...WB_FUNNEL_HEADERS];
+                const enhancedRows = csvRows.map((row) => [storeName, ...row]);
+                writeWBFunnelToSheetGAS(filePathOrSheetName, headers, enhancedRows, period, storeName);
+                logger.info(`✅ Данные записаны в лист: ${filePathOrSheetName} (${enhancedRows.length} строк)`);
+            }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
-            logger.error(`❌ Ошибка при сохранении файла: ${errorMessage}`);
+            logger.error(`❌ Ошибка при сохранении: ${errorMessage}`);
         }
 
         logger.success('✓ Выполнение завершено успешно');
@@ -59,6 +70,146 @@ export async function wbFunnelByStore(
             logger.error(`Stack trace: ${error.stack}`);
         }
         throw error;
+    }
+}
+
+/** Колонка "Дата" в листе после добавления "Магазин" (1-based). */
+const WB_FUNNEL_DATE_COL = 14;
+
+/**
+ * Записывает данные воронки в лист wb-funnel-data для GAS:
+ * удаляет строки по магазину за период, дописывает новые в конец.
+ */
+function writeWBFunnelToSheetGAS(
+    sheetName: string,
+    headers: string[],
+    rows: (string | number | null)[][],
+    period: SelectedPeriod,
+    targetStore: string,
+): void {
+    const SpreadsheetApp = (
+        globalThis as {
+            SpreadsheetApp?: {
+                getActiveSpreadsheet: () => {
+                    getSheetByName: (name: string) => {
+                        getLastRow: () => number;
+                        clear: () => void;
+                        getRange: (
+                            row: number,
+                            col: number,
+                            numRows: number,
+                            numCols: number,
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number | Date)[][];
+                            clearContent: () => void;
+                        };
+                    } | null;
+                    insertSheet: (name: string) => {
+                        getLastRow: () => number;
+                        clear: () => void;
+                        getRange: (
+                            row: number,
+                            col: number,
+                            numRows: number,
+                            numCols: number,
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number | Date)[][];
+                            clearContent: () => void;
+                        };
+                    };
+                };
+            };
+        }
+    ).SpreadsheetApp;
+
+    if (!SpreadsheetApp) {
+        throw new Error('SpreadsheetApp не доступен. Убедитесь, что код запущен в Google Apps Script окружении.');
+    }
+
+    const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
+    if (!spreadsheet) {
+        throw new Error(
+            'Не удалось получить активную таблицу. Убедитесь, что скрипт привязан к Google Sheets таблице.',
+        );
+    }
+
+    let sheet = spreadsheet.getSheetByName(sheetName);
+    if (!sheet) {
+        sheet = spreadsheet.insertSheet(sheetName);
+    }
+
+    const normalize = (v: string | number | null | undefined): string | number =>
+        v === null || v === undefined ? '' : v;
+    const lastCol = headers.length;
+    const fromYmd = period.start;
+    const toYmd = period.end;
+    const dataStartRow = 2;
+
+    if (headers.length > 0) {
+        sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    }
+
+    const normalizedRows = rows.map((row) => row.map((v) => normalize(v)));
+    const existingLastRow = sheet.getLastRow();
+    let existingRows: (string | number | Date)[][] = [];
+
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        existingRows = sheet.getRange(dataStartRow, 1, numExisting, lastCol).getValues() as (
+            | string
+            | number
+            | Date
+        )[][];
+    }
+
+    const toYmdFromCell = (value: string | number | Date): string | null => {
+        if (value instanceof Date) {
+            return value.toISOString().slice(0, 10);
+        }
+        const str = String(value).trim();
+        if (!str) {
+            return null;
+        }
+        const m = str.match(/^(\d{2})[.-](\d{2})[.-](\d{4})$/u);
+        if (m) {
+            const [, dd, mm, yyyy] = m;
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        if (/^\d{4}-\d{2}-\d{2}$/u.test(str)) {
+            return str;
+        }
+        return null;
+    };
+
+    const filteredExisting = existingRows.filter((row) => {
+        const storeCell = String(row[0] ?? '').trim();
+        const rawDate = row[WB_FUNNEL_DATE_COL - 1];
+        const ymd = rawDate !== null ? toYmdFromCell(rawDate) : null;
+        if (!storeCell || !ymd) {
+            return true;
+        }
+        if (storeCell !== targetStore) {
+            return true;
+        }
+        return ymd < fromYmd || ymd > toYmd;
+    });
+
+    const combined = [...filteredExisting, ...normalizedRows] as (string | number)[][];
+
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        sheet.getRange(dataStartRow, 1, numExisting, lastCol).clearContent();
+    }
+
+    if (combined.length > 0) {
+        sheet.getRange(dataStartRow, 1, combined.length, lastCol).setValues(combined);
+    }
+
+    const Logger = (globalThis as { Logger?: { log: (message: string) => void } }).Logger;
+    if (Logger) {
+        Logger.log('✅ Данные записаны в лист: ' + sheetName);
     }
 }
 
