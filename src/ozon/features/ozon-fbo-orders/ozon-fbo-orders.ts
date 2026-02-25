@@ -8,6 +8,7 @@ import {
     buildOrdersPeriodFromDates,
     getOzonOrdersFilePath,
     writeOzonOrdersCsv,
+    OzonOrdersPeriod,
 } from './ozon-fbo-orders.helpers';
 import { logger } from '../../../common/helpers/logs/logger';
 import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
@@ -86,7 +87,7 @@ export async function ozoFboOrdersByStore(
         const year = extractYear(isoDate);
         const month = extractMonth(isoDate);
         const week = getWeekNumber(isoDate);
-        const displayDate = `${dayStr}.${monthStr}.${yearStr}`;
+        const displayDate = `${dayStr}-${monthStr}-${yearStr}`;
 
         return [storeName, year, month, week, displayDate, ...row];
     });
@@ -97,7 +98,7 @@ export async function ozoFboOrdersByStore(
         writeOzonOrdersCsv(filePathOrSheetName, headers, enhancedRows);
         logger.info(`✅ CSV сохранён: ${filePathOrSheetName} (${enhancedRows.length} строк)`);
     } else {
-        writeOzonOrdersCsvToSheetGAS(filePathOrSheetName, headers, enhancedRows);
+        writeOzonOrdersCsvToSheetGAS(filePathOrSheetName, headers, enhancedRows, period);
         logger.info(`✅ Данные записаны в лист: ${filePathOrSheetName} (${enhancedRows.length} строк)`);
     }
 
@@ -112,6 +113,7 @@ function writeOzonOrdersCsvToSheetGAS(
     sheetName: string,
     headers: string[],
     rows: (string | number)[][],
+    period: OzonOrdersPeriod,
 ): void {
     const SpreadsheetApp = (
         globalThis as {
@@ -125,7 +127,11 @@ function writeOzonOrdersCsvToSheetGAS(
                             col: number,
                             numRows: number,
                             numCols: number,
-                        ) => { setValues: (values: (string | number)[][]) => void };
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number)[][];
+                            clearContent: () => void;
+                        };
                     } | null;
                     insertSheet: (name: string) => {
                         getLastRow: () => number;
@@ -135,7 +141,11 @@ function writeOzonOrdersCsvToSheetGAS(
                             col: number,
                             numRows: number,
                             numCols: number,
-                        ) => { setValues: (values: (string | number)[][]) => void };
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number)[][];
+                            clearContent: () => void;
+                        };
                     };
                 };
             };
@@ -159,8 +169,6 @@ function writeOzonOrdersCsvToSheetGAS(
     }
 
     const normalize = (v: string | number): string | number => (v === null || v === undefined ? '' : v);
-
-    const lastRow = sheet.getLastRow();
     const lastCol = headers.length;
 
     // Обновляем заголовок (первая строка)
@@ -169,6 +177,7 @@ function writeOzonOrdersCsvToSheetGAS(
     }
 
     // Если нет данных в rows — просто заголовок
+    const lastRow = sheet.getLastRow();
     if (rows.length === 0) {
         if (lastRow > 1) {
             // очищаем все данные ниже заголовка
@@ -179,28 +188,65 @@ function writeOzonOrdersCsvToSheetGAS(
 
     const normalizedRows = rows.map((row) => row.map(normalize));
 
-    // Для логики фильтрации нам нужны значения Магазин и Принят в обработку, дата
     const STORE_COL = 1; // "Магазин"
     const DATE_COL = 5; // "Принят в обработку, дата"
-    const targetStore = String(normalizedRows[0][STORE_COL - 1] ?? '');
-    const targetDate = String(normalizedRows[0][DATE_COL - 1] ?? '');
+    const targetStore = String(normalizedRows[0][STORE_COL - 1] ?? '').trim();
+
+    const fromYmd = period.since.slice(0, 10); // YYYY-MM-DD
+    const toYmd = period.to.slice(0, 10); // YYYY-MM-DD
+
+    const toYmdFromCell = (value: string | number | Date): string | null => {
+        if (value instanceof Date) {
+            return value.toISOString().slice(0, 10);
+        }
+        const str = String(value).trim();
+        if (!str) {
+            return null;
+        }
+        // Форматы DD.MM.YYYY или DD-MM-YYYY
+        const m = str.match(/^(\d{2})[.-](\d{2})[.-](\d{4})$/u);
+        if (m) {
+            const [, dd, mm, yyyy] = m;
+            return `${yyyy}-${mm}-${dd}`;
+        }
+        // Уже YYYY-MM-DD
+        const mIso = str.match(/^\d{4}-\d{2}-\d{2}$/u);
+        if (mIso) {
+            return str;
+        }
+        return null;
+    };
 
     const dataStartRow = 2;
     const existingLastRow = sheet.getLastRow();
-    let existingRows: (string | number)[][] = [];
+    let existingRows: (string | number | Date)[][] = [];
 
     if (existingLastRow >= dataStartRow) {
         const numExisting = existingLastRow - dataStartRow + 1;
-        existingRows = sheet.getRange(dataStartRow, 1, numExisting, lastCol).getValues() as (string | number)[][];
+        existingRows = sheet.getRange(dataStartRow, 1, numExisting, lastCol).getValues() as (
+            | string
+            | number
+            | Date
+        )[][];
     }
 
     const filteredExisting = existingRows.filter((row) => {
-        const storeCell = String(row[STORE_COL - 1] ?? '');
-        const dateCell = String(row[DATE_COL - 1] ?? '');
-        return !(storeCell === targetStore && dateCell === targetDate);
+        const storeCell = String(row[STORE_COL - 1] ?? '').trim();
+        const rawDateCell = row[DATE_COL - 1] as string | number | Date | undefined;
+        const ymd = rawDateCell ? toYmdFromCell(rawDateCell) : null;
+
+        if (!storeCell || !ymd) {
+            return true;
+        }
+
+        if (storeCell !== targetStore) {
+            return true;
+        }
+
+        return ymd < fromYmd || ymd > toYmd;
     });
 
-    const combined = [...filteredExisting, ...normalizedRows];
+    const combined = [...filteredExisting, ...normalizedRows] as (string | number)[][];
 
     // очищаем старые данные
     if (existingLastRow >= dataStartRow) {

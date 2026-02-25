@@ -154,7 +154,11 @@ function writeOzonStocksCsvToSheetGAS(
                             col: number,
                             numRows: number,
                             numCols: number,
-                        ) => { setValues: (values: (string | number)[][]) => void };
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number)[][];
+                            clearContent: () => void;
+                        };
                     } | null;
                     insertSheet: (name: string) => {
                         getLastRow: () => number;
@@ -164,7 +168,11 @@ function writeOzonStocksCsvToSheetGAS(
                             col: number,
                             numRows: number,
                             numCols: number,
-                        ) => { setValues: (values: (string | number)[][]) => void };
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number)[][];
+                            clearContent: () => void;
+                        };
                     };
                 };
             };
@@ -188,8 +196,6 @@ function writeOzonStocksCsvToSheetGAS(
     }
 
     const normalize = (v: string | number): string | number => (v === null || v === undefined ? '' : v);
-
-    const lastRow = sheet.getLastRow();
     const lastCol = headers.length;
 
     // Обновляем заголовок (первая строка)
@@ -198,14 +204,14 @@ function writeOzonStocksCsvToSheetGAS(
     }
 
     if (rows.length === 0) {
-        // Нечего добавлять — просто оставляем заголовок и существующие данные других магазинов как есть
+        // Нечего добавлять — просто оставляем заголовок и существующие данные как есть
         return;
     }
 
     const normalizedRows = rows.map((row) => row.map(normalize));
 
     const STORE_COL = 1; // "Магазин"
-    const targetStore = String(normalizedRows[0][STORE_COL - 1] ?? '');
+    const targetStore = String(normalizedRows[0][STORE_COL - 1] ?? '').trim();
 
     const dataStartRow = 2;
     const existingLastRow = sheet.getLastRow();
@@ -217,7 +223,10 @@ function writeOzonStocksCsvToSheetGAS(
     }
 
     const filteredExisting = existingRows.filter((row) => {
-        const storeCell = String(row[STORE_COL - 1] ?? '');
+        const storeCell = String(row[STORE_COL - 1] ?? '').trim();
+        if (!storeCell) {
+            return true;
+        }
         return storeCell !== targetStore;
     });
 
