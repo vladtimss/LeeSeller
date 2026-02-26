@@ -2,11 +2,14 @@ import { WBStoreIdentifier } from '../../enums/wb-store-identifier.enum';
 import { logger } from '../../../common/helpers/logs/logger';
 import {
     getPeriod,
+    getPeriod28,
     SelectedPeriod,
     generateReportId,
     buildStockReportParams,
     getWBStocksFilePath,
     extractCsvFromZip,
+    sleepMs,
+    WB_STOCKS_REPORT_REQUEST_INTERVAL_MS,
 } from './wb-stocks.helpers';
 import { getRuntimeEnvironment } from '../../../common/helpers/runtime/runtime-env.helper';
 import {
@@ -18,6 +21,7 @@ import { StockHistoryReportRequest } from './wb-stocks.types';
 import { writeCsvFile } from '../../../common/helpers/files/files.helper';
 import { WriteMode } from '../../../common/helpers/files/files.types';
 import { isNode } from '../../../common/helpers/runtime/runtime-env.helper';
+import { getWBStoreDisplayName } from '../../helpers/wb.helpers';
 
 /**
  * Главная функция фичи wb-stocks
@@ -37,66 +41,94 @@ export async function wbStocksByStore(
 
         logger.info('🚀 Запуск wb-stocks для ' + storeIdentifier);
 
-        // 1. Определяем период: если не передан, используем текущую дату по МСК
-        const period = getPeriod(selectedPeriod);
-        logger.info('📅 Получение данных за период: ' + period.start + ' - ' + period.end);
+        // 1. Периоды: 7 дней (основной) и 28 дней (для OrdersCount/OrdersSum за 28 дней)
+        const period7 = getPeriod(selectedPeriod);
+        const period28 = getPeriod28(selectedPeriod);
+        logger.info('📅 Период 7 дней: ' + period7.start + ' - ' + period7.end);
+        logger.info('📅 Период 28 дней: ' + period28.start + ' - ' + period28.end);
 
-        // 2. Генерируем UUID для задачи
-        const reportId = generateReportId();
-        logger.info('🆔 ID задачи: ' + reportId);
+        // 2. Создаём две задачи с интервалом 20 сек (лимит API)
+        const reportId7 = generateReportId();
+        const reportId28 = generateReportId();
 
-        // 3. Формируем параметры запроса
-        const params = buildStockReportParams(period);
-
-        // 4. Создаем задачу на генерацию отчета
-        const request: StockHistoryReportRequest = {
-            id: reportId,
+        const request7: StockHistoryReportRequest = {
+            id: reportId7,
             reportType: 'STOCK_HISTORY_REPORT_CSV',
-            params: params,
+            params: buildStockReportParams(period7),
+        };
+        const request28: StockHistoryReportRequest = {
+            id: reportId28,
+            reportType: 'STOCK_HISTORY_REPORT_CSV',
+            params: buildStockReportParams(period28),
         };
 
-        await createStockHistoryReport(storeIdentifier, request);
+        await createStockHistoryReport(storeIdentifier, request7);
+        logger.info(
+            '⏳ Ожидание ' + WB_STOCKS_REPORT_REQUEST_INTERVAL_MS / 1000 + ' сек перед вторым запросом (лимит API)...',
+        );
+        await sleepMs(WB_STOCKS_REPORT_REQUEST_INTERVAL_MS);
+        await createStockHistoryReport(storeIdentifier, request28);
 
-        // 5. Ожидаем готовности отчета (проверка каждые 5 сек, максимум 5 попыток)
-        await waitForStockReportReady(storeIdentifier, reportId);
+        // 3. Ожидаем готовности обоих отчётов
+        await Promise.all([
+            waitForStockReportReady(storeIdentifier, reportId7),
+            waitForStockReportReady(storeIdentifier, reportId28),
+        ]);
 
-        // 6. Скачиваем отчет (ZIP архив)
-        logger.info('📥 Скачивание отчета...');
-        const zipBuffer = await downloadStockReportFile(storeIdentifier, reportId);
+        // 4. Скачиваем оба отчёта и извлекаем CSV
+        logger.info('📥 Скачивание отчётов...');
+        const [zipBuffer7, zipBuffer28] = await Promise.all([
+            downloadStockReportFile(storeIdentifier, reportId7),
+            downloadStockReportFile(storeIdentifier, reportId28),
+        ]);
 
-        // 7. Извлекаем CSV из ZIP архива
         logger.info('📦 Извлечение CSV из ZIP...');
-        const csvContent = await extractCsvFromZip(zipBuffer);
+        const [csvContent7, csvContent28] = await Promise.all([
+            extractCsvFromZip(zipBuffer7),
+            extractCsvFromZip(zipBuffer28),
+        ]);
 
-        if (!csvContent || csvContent.trim().length === 0) {
-            logger.info('⚠️  CSV файл пуст. Возможно, данных нет.');
+        if (!csvContent7 || csvContent7.trim().length === 0) {
+            logger.info('⚠️  CSV отчёта за 7 дней пуст.');
             return;
         }
 
-        // 8. Парсим CSV для получения заголовков и данных
-        const csvLines = csvContent.split('\n').filter((line) => line.trim() !== '');
-        if (csvLines.length === 0) {
-            logger.info('⚠️  CSV файл не содержит данных.');
+        const lines7 = csvContent7.split('\n').filter((line) => line.trim() !== '');
+        const lines28 = csvContent28.split('\n').filter((line) => line.trim() !== '');
+        if (lines7.length === 0) {
+            logger.info('⚠️  CSV за 7 дней не содержит данных.');
             return;
         }
 
-        // Первая строка - заголовки
-        const headers = parseCsvLine(csvLines[0]);
-        // Остальные строки - данные
-        const rows = csvLines.slice(1).map((line) => parseCsvLine(line));
+        const headers7 = parseCsvLine(lines7[0]);
+        const rows7 = lines7.slice(1).map((line) => parseCsvLine(line));
+        const headers28 = lines28.length > 0 ? parseCsvLine(lines28[0]) : [];
+        const rows28 = lines28.length > 1 ? lines28.slice(1).map((line) => parseCsvLine(line)) : [];
 
+        const { headers, rows } = mergeStocksReportsWithOrders7And28(headers7, rows7, headers28, rows28);
         logger.info('📊 Получено строк данных: ' + rows.length);
 
-        // 9. Формируем путь к файлу и сохраняем CSV
-        const filePath = getWBStocksFilePath(period, storeIdentifier);
+        // 5. Формируем путь к файлу / имя листа и сохраняем
+        const filePathOrSheetName = getWBStocksFilePath(period7, storeIdentifier);
+        const storeName = getWBStoreDisplayName(storeIdentifier);
+
+        const exportDate = new Date();
+        const dd = String(exportDate.getDate()).padStart(2, '0');
+        const mm = String(exportDate.getMonth() + 1).padStart(2, '0');
+        const yyyy = exportDate.getFullYear();
+        const hours = exportDate.getHours();
+        const minutes = String(exportDate.getMinutes()).padStart(2, '0');
+        const seconds = String(exportDate.getSeconds()).padStart(2, '0');
+        const exportTimestamp = `${dd}.${mm}.${yyyy} ${hours}:${minutes}:${seconds}`;
+
         if (isNode()) {
-            // Для Node.js сохраняем как есть в файл
-            writeCsvFile(filePath, headers, rows, WriteMode.OVERWRITE);
-            logger.info('✅ CSV файл сохранен: ' + filePath + ' (' + rows.length + ' строк)');
+            writeCsvFile(filePathOrSheetName, headers, rows, WriteMode.OVERWRITE);
+            logger.info('✅ CSV файл сохранен: ' + filePathOrSheetName + ' (' + rows.length + ' строк)');
         } else {
-            // Для GAS перезаписываем лист полностью
-            writeCsvFileOverwriteGAS(filePath, headers, rows);
-            logger.info('✅ CSV данные сохранены в лист: ' + filePath + ' (' + rows.length + ' строк)');
+            const sheetHeaders = ['Магазин', 'Дата выгрузки', ...headers];
+            const allRows = rows.map((row) => [storeName, exportTimestamp, ...row]);
+            writeWBStocksToSheetGAS(filePathOrSheetName, sheetHeaders, allRows, storeName);
+            logger.info('✅ Данные записаны в лист: ' + filePathOrSheetName + ' (' + allRows.length + ' строк)');
         }
 
         logger.success('✓ Выполнение завершено успешно');
@@ -108,6 +140,70 @@ export async function wbStocksByStore(
         }
         throw error;
     }
+}
+
+/** Имена колонок заказов в отчёте WB (переименуем в *, 7 и добавим *, 28). */
+const ORDERS_COUNT_HEADER = 'OrdersCount';
+const ORDERS_SUM_HEADER = 'OrdersSum';
+/** Ключ для ВПР: одна строка = один артикул на одном складе. */
+const KEY_HEADERS = ['VendorCode', 'RegionName', 'OfficeName'] as const;
+
+/**
+ * Сливает отчёт за 7 дней (основа) с отчётом за 28 дней: переименовывает OrdersCount/OrdersSum в *, 7,
+ * подтягивает из отчёта за 28 дней OrdersCount и OrdersSum по ключу VendorCode + RegionName + OfficeName (как ВПР).
+ */
+function mergeStocksReportsWithOrders7And28(
+    headers7: string[],
+    rows7: string[][],
+    headers28: string[],
+    rows28: string[][],
+): { headers: string[]; rows: string[][] } {
+    const idxOrdersCount28 = headers28.indexOf(ORDERS_COUNT_HEADER);
+    const idxOrdersSum28 = headers28.indexOf(ORDERS_SUM_HEADER);
+
+    const idxKey7 = KEY_HEADERS.map((name) => headers7.indexOf(name));
+    const idxKey28 = KEY_HEADERS.map((name) => headers28.indexOf(name));
+
+    const keyComplete =
+        idxKey7.every((i) => i >= 0) && idxKey28.every((i) => i >= 0) && idxOrdersCount28 >= 0 && idxOrdersSum28 >= 0;
+
+    const map28ByKey = new Map<string, [string, string]>();
+    if (keyComplete) {
+        for (const row of rows28) {
+            const key = idxKey28.map((i) => row[i] ?? '').join('\t');
+            const count = row[idxOrdersCount28] ?? '';
+            const sum = row[idxOrdersSum28] ?? '';
+            map28ByKey.set(key, [count, sum]);
+        }
+    }
+
+    const newHeaders = headers7.map((h) => {
+        if (h === ORDERS_COUNT_HEADER) {
+            return 'OrdersCount, 7';
+        }
+        if (h === ORDERS_SUM_HEADER) {
+            return 'OrdersSum, 7';
+        }
+        return h;
+    });
+    newHeaders.push('OrdersCount, 28', 'OrdersSum, 28');
+
+    const newRows: string[][] = [];
+    for (const row7 of rows7) {
+        let count28 = '';
+        let sum28 = '';
+        if (keyComplete) {
+            const key = idxKey7.map((i) => row7[i] ?? '').join('\t');
+            const pair = map28ByKey.get(key);
+            if (pair) {
+                count28 = pair[0];
+                sum28 = pair[1];
+            }
+        }
+        newRows.push([...row7, count28, sum28]);
+    }
+
+    return { headers: newHeaders, rows: newRows };
 }
 
 /**
@@ -142,42 +238,43 @@ function parseCsvLine(line: string): string[] {
 }
 
 /**
- * Перезаписывает данные в Google Sheets лист для GAS окружения
- * Полностью очищает лист и записывает новые данные
+ * Записывает данные остатков в лист wb-stocks-data для GAS: удаляет строки по магазину, дописывает новые в конец.
  */
-function writeCsvFileOverwriteGAS(
+function writeWBStocksToSheetGAS(
     sheetName: string,
     headers: string[],
     rows: (string | number | null | undefined)[][],
+    targetStore: string,
 ): void {
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
     const SpreadsheetApp = (
         globalThis as {
             SpreadsheetApp?: {
                 getActiveSpreadsheet: () => {
                     getSheetByName: (name: string) => {
-                        getName: () => string;
                         getLastRow: () => number;
-                        getMaxRows: () => number;
-                        deleteRows: (row: number, numRows: number) => void;
                         getRange: (
                             row: number,
                             col: number,
                             numRows: number,
                             numCols: number,
-                        ) => { setValues: (values: (string | number)[][]) => void };
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number)[][];
+                            clearContent: () => void;
+                        };
                     } | null;
                     insertSheet: (name: string) => {
-                        getName: () => string;
                         getLastRow: () => number;
-                        getMaxRows: () => number;
-                        deleteRows: (row: number, numRows: number) => void;
                         getRange: (
                             row: number,
                             col: number,
                             numRows: number,
                             numCols: number,
-                        ) => { setValues: (values: (string | number)[][]) => void };
+                        ) => {
+                            setValues: (values: (string | number)[][]) => void;
+                            getValues: () => (string | number)[][];
+                            clearContent: () => void;
+                        };
                     };
                 };
             };
@@ -195,42 +292,51 @@ function writeCsvFileOverwriteGAS(
         );
     }
 
-    // Получаем или создаем лист
     let sheet = spreadsheet.getSheetByName(sheetName);
     if (!sheet) {
         sheet = spreadsheet.insertSheet(sheetName);
-    } else {
-        // Очищаем существующий лист
-        const lastRow = sheet.getLastRow();
-        if (lastRow > 0) {
-            sheet.deleteRows(1, lastRow);
-        }
     }
 
-    // Нормализуем данные для записи
-    const normalizeValue = (value: string | number | null | undefined): string | number => {
-        if (value === null || value === undefined) {
-            return '';
-        }
-        return value;
-    };
+    const normalize = (v: string | number | null | undefined): string | number =>
+        v === null || v === undefined ? '' : v;
+    const lastCol = headers.length;
+    const dataStartRow = 2;
 
-    const normalizedRows = rows.map((row) => row.map((value) => normalizeValue(value)));
-
-    // Записываем заголовки
     if (headers.length > 0) {
         sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     }
 
-    // Записываем данные
-    if (normalizedRows.length > 0) {
-        sheet.getRange(2, 1, normalizedRows.length, headers.length).setValues(normalizedRows);
+    const normalizedRows = rows.map((row) => row.map((v) => normalize(v))) as (string | number)[][];
+    const existingLastRow = sheet.getLastRow();
+    let existingRows: (string | number)[][] = [];
+
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        existingRows = sheet.getRange(dataStartRow, 1, numExisting, lastCol).getValues() as (string | number)[][];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-    const Logger = (globalThis as { Logger?: { log: (message: string, ...args: unknown[]) => void } }).Logger;
+    const filteredExisting = existingRows.filter((row) => {
+        const storeCell = String(row[0] ?? '').trim();
+        if (!storeCell) {
+            return true;
+        }
+        return storeCell !== targetStore;
+    });
+
+    const combined = [...filteredExisting, ...normalizedRows];
+
+    if (existingLastRow >= dataStartRow) {
+        const numExisting = existingLastRow - dataStartRow + 1;
+        sheet.getRange(dataStartRow, 1, numExisting, lastCol).clearContent();
+    }
+
+    if (combined.length > 0) {
+        sheet.getRange(dataStartRow, 1, combined.length, lastCol).setValues(combined);
+    }
+
+    const Logger = (globalThis as { Logger?: { log: (message: string) => void } }).Logger;
     if (Logger) {
-        Logger.log('✅ Данные успешно перезаписаны в лист: ' + sheet.getName());
+        Logger.log('✅ Данные записаны в лист: ' + sheetName);
     }
 }
 

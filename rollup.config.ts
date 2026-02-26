@@ -71,14 +71,36 @@ function generateRollupConfig(entryPoint: string): RollupOptions {
     const featureDir = path.dirname(entryPath);
     const entryFileName = path.basename(entryPoint, path.extname(entryPoint));
     const outputDir = path.join(featureDir, 'dist-gas');
-    const outputFileName = `${entryFileName}.bundle.js`;
+    // GAS entry → выходной файл и имя IIFE для Google Sheet
+    const isWbFunnelGas = entryFileName === 'wb-funnel-gas';
+    const isWbStocks = entryFileName === 'wb-stocks';
+    const isOzonFunnelGas = entryFileName === 'ozon-fbo-orders-gas';
+    const isOzonStocksGas = entryFileName === 'ozon-stocks-gas';
+    const outputFileName = isWbFunnelGas
+        ? 'wb-funnel.bundle.js'
+        : isWbStocks
+            ? 'wb-stocks.bundle.js'
+            : isOzonFunnelGas
+                ? 'ozon-funnel.bundle.js'
+                : isOzonStocksGas
+                    ? 'ozon-stocks.bundle.js'
+                    : `${entryFileName}.bundle.js`;
+    const iifeName = isWbFunnelGas
+        ? 'WBFunnel'
+        : isWbStocks
+            ? 'WBStocks'
+            : isOzonFunnelGas
+                ? 'OzonFunnel'
+                : isOzonStocksGas
+                    ? 'OzonStocks'
+                    : 'wbFunnel';
 
     return {
         input: entryPoint,
         output: {
             file: path.join(outputDir, outputFileName),
-            format: 'iife', // IIFE для плоского кода, но потом уберем обертку
-            name: 'wbFunnel',
+            format: 'iife',
+            name: iifeName,
             // Инлайним динамические импорты вместо создания отдельных чанков
             // Это нужно для поддержки динамических импортов (например, adm-zip) в формате IIFE
             inlineDynamicImports: true,

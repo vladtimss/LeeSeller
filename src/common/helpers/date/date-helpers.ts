@@ -104,10 +104,9 @@ export function getYesterdayDateMoscow(): string {
     
     // Создаем дату в МСК
     const moscowDate = new Date(moscowTime);
-    
     // Вычитаем 1 день
     moscowDate.setDate(moscowDate.getDate() - 1);
-    
+
     // Форматируем в YYYY-MM-DD
     const year = moscowDate.getUTCFullYear();
     const month = String(moscowDate.getUTCMonth() + 1).padStart(2, '0');
