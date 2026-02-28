@@ -297,8 +297,23 @@ function writeWBStocksToSheetGAS(
         sheet = spreadsheet.insertSheet(sheetName);
     }
 
-    const normalize = (v: string | number | null | undefined): string | number =>
-        v === null || v === undefined ? '' : v;
+    const normalizeForSheet = (v: string | number | null | undefined): string | number => {
+        if (v === null || v === undefined) {
+            return '';
+        }
+
+        if (typeof v === 'number') {
+            const str = String(v);
+            return str.includes('.') ? str.replace('.', ',') : str;
+        }
+
+        const trimmed = v.trim();
+        if (/^-?\d+\.\d+$/u.test(trimmed)) {
+            return trimmed.replace('.', ',');
+        }
+
+        return v;
+    };
     const lastCol = headers.length;
     const dataStartRow = 2;
 
@@ -306,7 +321,7 @@ function writeWBStocksToSheetGAS(
         sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     }
 
-    const normalizedRows = rows.map((row) => row.map((v) => normalize(v))) as (string | number)[][];
+    const normalizedRows = rows.map((row) => row.map((v) => normalizeForSheet(v))) as (string | number)[][];
     const existingLastRow = sheet.getLastRow();
     let existingRows: (string | number)[][] = [];
 

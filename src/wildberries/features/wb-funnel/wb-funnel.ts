@@ -140,8 +140,26 @@ function writeWBFunnelToSheetGAS(
         sheet = spreadsheet.insertSheet(sheetName);
     }
 
-    const normalize = (v: string | number | null | undefined): string | number =>
-        v === null || v === undefined ? '' : v;
+    const normalizeForSheet = (v: string | number | null | undefined): string | number => {
+        if (v === null || v === undefined) {
+            return '';
+        }
+
+        // Число → строка с запятой в качестве десятичного разделителя
+        if (typeof v === 'number') {
+            const str = String(v);
+            return str.includes('.') ? str.replace('.', ',') : str;
+        }
+
+        const trimmed = v.trim();
+
+        // Строка вида 10.0 / 582.00 → 10,0 / 582,00
+        if (/^-?\d+\.\d+$/u.test(trimmed)) {
+            return trimmed.replace('.', ',');
+        }
+
+        return v;
+    };
     const lastCol = headers.length;
     const fromYmd = period.start;
     const toYmd = period.end;
@@ -151,7 +169,7 @@ function writeWBFunnelToSheetGAS(
         sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     }
 
-    const normalizedRows = rows.map((row) => row.map((v) => normalize(v)));
+    const normalizedRows = rows.map((row) => row.map((v) => normalizeForSheet(v)));
     const existingLastRow = sheet.getLastRow();
     let existingRows: (string | number | Date)[][] = [];
 

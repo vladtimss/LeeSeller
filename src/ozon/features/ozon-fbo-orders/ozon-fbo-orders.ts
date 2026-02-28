@@ -168,7 +168,23 @@ function writeOzonOrdersCsvToSheetGAS(
         sheet = spreadsheet.insertSheet(sheetName);
     }
 
-    const normalize = (v: string | number): string | number => (v === null || v === undefined ? '' : v);
+    const normalizeForSheet = (v: string | number): string | number => {
+        if (v === null || v === undefined) {
+            return '';
+        }
+
+        if (typeof v === 'number') {
+            const str = String(v);
+            return str.includes('.') ? str.replace('.', ',') : str;
+        }
+
+        const trimmed = v.trim();
+        if (/^-?\d+\.\d+$/u.test(trimmed)) {
+            return trimmed.replace('.', ',');
+        }
+
+        return v;
+    };
     const lastCol = headers.length;
 
     // Обновляем заголовок (первая строка)
@@ -186,7 +202,7 @@ function writeOzonOrdersCsvToSheetGAS(
         return;
     }
 
-    const normalizedRows = rows.map((row) => row.map(normalize));
+    const normalizedRows = rows.map((row) => row.map(normalizeForSheet));
 
     const STORE_COL = 1; // "Магазин"
     const DATE_COL = 5; // "Принят в обработку, дата"

@@ -61,15 +61,15 @@ if (isWbFunnelGasBundle) {
     const gasFooter = [
         '',
         '// Глобальные функции для запуска из Google Apps Script UI',
-        'function runPovarFunnel() {',
+        'function runWBPovarFunnel() {',
         '    return WBFunnel.wbFunnelByStore(WBFunnel.WBStoreIdentifier.POVAR_NA_RAYONE);',
         '}',
         '',
-        'function runLeeshopFunnel() {',
+        'function runWBLeeshopFunnel() {',
         '    return WBFunnel.wbFunnelByStore(WBFunnel.WBStoreIdentifier.LEESHOP);',
         '}',
     ].join('\n');
-    if (!content.includes('function runLeeshopFunnel()')) {
+    if (!content.includes('function runWBLeeshopFunnel()')) {
         content = content.trimEnd() + '\n' + gasFooter + '\n';
     }
 } else if (
@@ -201,11 +201,11 @@ if (isWbFunnelGasBundle) {
         '})();\n' +
         '\n' +
         '// Глобальные функции для запуска из Google Apps Script UI\n' +
-        'function runPovarStocks() {\n' +
+        'function runWBPovarStocks() {\n' +
         '    return WBStocks.wbStocksByStore(WBStocks.WBStoreIdentifier.POVAR_NA_RAYONE);\n' +
         '}\n' +
         '\n' +
-        'function runLeeshopStocks() {\n' +
+        'function runWBLeeshopStocks() {\n' +
         '    return WBStocks.wbStocksByStore(WBStocks.WBStoreIdentifier.LEESHOP);\n' +
         '}';
     content = content.replace(
@@ -218,11 +218,11 @@ if (isWbFunnelGasBundle) {
         const gasFooterStocks = [
             '',
             '// Глобальные функции для запуска из Google Apps Script UI',
-            'function runPovarStocks() {',
+            'function runWBPovarStocks() {',
             '    return WBStocks.wbStocksByStore(WBStocks.WBStoreIdentifier.POVAR_NA_RAYONE);',
             '}',
             '',
-            'function runLeeshopStocks() {',
+            'function runWBLeeshopStocks() {',
             '    return WBStocks.wbStocksByStore(WBStocks.WBStoreIdentifier.LEESHOP);',
             '}',
         ].join('\n');
@@ -263,15 +263,15 @@ if (isWbFunnelGasBundle) {
     const ozonFunnelFooter = [
         '',
         '// Глобальные функции для запуска из Google Apps Script UI',
-        'function runPovarOzonFunnel() {',
+        'function runOzonPovarFunnel() {',
         '    return OzonFunnel.ozoFboOrdersByStore(OzonFunnel.OzonStoreIdentifier.POVAR);',
         '}',
         '',
-        'function runLeeshopOzonFunnel() {',
+        'function runOzonLeeshopFunnel() {',
         '    return OzonFunnel.ozoFboOrdersByStore(OzonFunnel.OzonStoreIdentifier.LEESHOP);',
         '}',
     ].join('\n');
-    if (!content.includes('function runLeeshopOzonFunnel()')) {
+    if (!content.includes('function runOzonLeeshopFunnel()')) {
         content = content.trimEnd() + '\n' + ozonFunnelFooter + '\n';
     }
 } else if (
@@ -304,15 +304,15 @@ if (isWbFunnelGasBundle) {
     const ozonStocksFooter = [
         '',
         '// Глобальные функции для запуска из Google Apps Script UI',
-        'function runPovarOzonStocks() {',
+        'function runOzonPovarStocks() {',
         '    return OzonStocks.ozonStocksByStore(OzonStocks.OzonStoreIdentifier.POVAR);',
         '}',
         '',
-        'function runLeeshopOzonStocks() {',
+        'function runOzonLeeshopStocks() {',
         '    return OzonStocks.ozonStocksByStore(OzonStocks.OzonStoreIdentifier.LEESHOP);',
         '}',
     ].join('\n');
-    if (!content.includes('function runLeeshopOzonStocks()')) {
+    if (!content.includes('function runOzonLeeshopStocks()')) {
         content = content.trimEnd() + '\n' + ozonStocksFooter + '\n';
     }
 } else if (content.includes('var wbFunnel = (function')) {
