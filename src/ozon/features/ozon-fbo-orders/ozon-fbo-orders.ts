@@ -131,7 +131,11 @@ function writeOzonOrdersCsvToSheetGAS(
                             setValues: (values: (string | number)[][]) => void;
                             getValues: () => (string | number)[][];
                             clearContent: () => void;
+                            sort: (
+                                spec: { column: number; ascending: boolean } | { column: number; ascending: boolean }[],
+                            ) => void;
                         };
+                        deleteRows: (rowPosition: number, howMany: number) => void;
                     } | null;
                     insertSheet: (name: string) => {
                         getLastRow: () => number;
@@ -145,7 +149,11 @@ function writeOzonOrdersCsvToSheetGAS(
                             setValues: (values: (string | number)[][]) => void;
                             getValues: () => (string | number)[][];
                             clearContent: () => void;
+                            sort: (
+                                spec: { column: number; ascending: boolean } | { column: number; ascending: boolean }[],
+                            ) => void;
                         };
+                        deleteRows: (rowPosition: number, howMany: number) => void;
                     };
                 };
             };
@@ -235,46 +243,84 @@ function writeOzonOrdersCsvToSheetGAS(
 
     const dataStartRow = 2;
     const existingLastRow = sheet.getLastRow();
-    let existingRows: (string | number | Date)[][] = [];
+    const rowsToDelete: number[] = [];
 
     if (existingLastRow >= dataStartRow) {
         const numExisting = existingLastRow - dataStartRow + 1;
-        existingRows = sheet.getRange(dataStartRow, 1, numExisting, lastCol).getValues() as (
+        sheet.getRange(dataStartRow, 1, numExisting, lastCol).sort([
+            { column: STORE_COL, ascending: true },
+            { column: DATE_COL, ascending: true },
+        ]);
+        const colStore = sheet.getRange(dataStartRow, STORE_COL, numExisting, 1).getValues() as (
             | string
             | number
             | Date
         )[][];
-    }
-
-    const filteredExisting = existingRows.filter((row) => {
-        const storeCell = String(row[STORE_COL - 1] ?? '').trim();
-        const rawDateCell = row[DATE_COL - 1] as string | number | Date | undefined;
-        const ymd = rawDateCell ? toYmdFromCell(rawDateCell) : null;
-
-        if (!storeCell || !ymd) {
-            return true;
+        const colDate = sheet.getRange(dataStartRow, DATE_COL, numExisting, 1).getValues() as (
+            | string
+            | number
+            | Date
+        )[][];
+        for (let i = 0; i < numExisting; i++) {
+            const storeCell = String(colStore[i][0] ?? '').trim();
+            const rawDateCell = colDate[i][0];
+            const ymd = rawDateCell !== null && rawDateCell !== undefined ? toYmdFromCell(rawDateCell) : null;
+            if (!storeCell || !ymd || storeCell !== targetStore) {
+                continue;
+            }
+            if (ymd >= fromYmd && ymd <= toYmd) {
+                rowsToDelete.push(dataStartRow + i);
+            }
         }
-
-        if (storeCell !== targetStore) {
-            return true;
-        }
-
-        return ymd < fromYmd || ymd > toYmd;
-    });
-
-    const combined = [...filteredExisting, ...normalizedRows] as (string | number)[][];
-
-    // очищаем старые данные
-    if (existingLastRow >= dataStartRow) {
-        const numExisting = existingLastRow - dataStartRow + 1;
-        sheet.getRange(dataStartRow, 1, numExisting, lastCol).clearContent();
-    }
-
-    if (combined.length > 0) {
-        sheet.getRange(dataStartRow, 1, combined.length, lastCol).setValues(combined);
     }
 
     const Logger = (globalThis as { Logger?: { log: (message: string) => void } }).Logger;
+
+    if (rowsToDelete.length === 0) {
+        if (Logger) {
+            Logger.log(
+                // eslint-disable-next-line max-len
+                `📋 Данных за период ${fromYmd}–${toYmd} в листе нет — дописываем в конец (${normalizedRows.length} строк)`,
+            );
+        }
+        if (headers.length > 0) {
+            sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        }
+        if (normalizedRows.length > 0) {
+            const startRow = existingLastRow >= dataStartRow ? existingLastRow + 1 : dataStartRow;
+            sheet.getRange(startRow, 1, normalizedRows.length, lastCol).setValues(normalizedRows);
+        }
+        if (Logger) {
+            Logger.log('✅ Данные записаны в лист: ' + sheetName);
+        }
+        return;
+    }
+
+    if (Logger) {
+        Logger.log(
+            `🔄 Найдено строк за период (дубликаты): ${rowsToDelete.length}. Удаляем пачками, затем дописываем ${normalizedRows.length} новых строк.`,
+        );
+    }
+    const sortedDesc = [...rowsToDelete].sort((a, b) => b - a);
+    const runs: { startRow: number; count: number }[] = [];
+    for (let i = 0; i < sortedDesc.length; i++) {
+        const row = sortedDesc[i];
+        if (runs.length > 0 && runs[runs.length - 1].startRow === row + 1) {
+            runs[runs.length - 1].startRow = row;
+            runs[runs.length - 1].count += 1;
+        } else {
+            runs.push({ startRow: row, count: 1 });
+        }
+    }
+    for (const { startRow, count } of runs) {
+        sheet.deleteRows(startRow, count);
+    }
+
+    const startRow = existingLastRow - rowsToDelete.length + 1;
+    if (normalizedRows.length > 0) {
+        sheet.getRange(startRow, 1, normalizedRows.length, lastCol).setValues(normalizedRows);
+    }
+
     if (Logger) {
         Logger.log('✅ Данные записаны в лист: ' + sheetName);
     }

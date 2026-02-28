@@ -60,6 +60,7 @@ export async function wbFunnelByStore(
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : String(error);
             logger.error(`❌ Ошибка при сохранении: ${errorMessage}`);
+            throw error;
         }
 
         logger.success('✓ Выполнение завершено успешно');
@@ -103,7 +104,11 @@ function writeWBFunnelToSheetGAS(
                             setValues: (values: (string | number)[][]) => void;
                             getValues: () => (string | number | Date)[][];
                             clearContent: () => void;
+                            sort: (
+                                spec: { column: number; ascending: boolean } | { column: number; ascending: boolean }[],
+                            ) => void;
                         };
+                        deleteRows: (rowPosition: number, howMany: number) => void;
                     } | null;
                     insertSheet: (name: string) => {
                         getLastRow: () => number;
@@ -117,7 +122,11 @@ function writeWBFunnelToSheetGAS(
                             setValues: (values: (string | number)[][]) => void;
                             getValues: () => (string | number | Date)[][];
                             clearContent: () => void;
+                            sort: (
+                                spec: { column: number; ascending: boolean } | { column: number; ascending: boolean }[],
+                            ) => void;
                         };
+                        deleteRows: (rowPosition: number, howMany: number) => void;
                     };
                 };
             };
@@ -171,15 +180,13 @@ function writeWBFunnelToSheetGAS(
 
     const normalizedRows = rows.map((row) => row.map((v) => normalizeForSheet(v)));
     const existingLastRow = sheet.getLastRow();
-    let existingRows: (string | number | Date)[][] = [];
 
     if (existingLastRow >= dataStartRow) {
         const numExisting = existingLastRow - dataStartRow + 1;
-        existingRows = sheet.getRange(dataStartRow, 1, numExisting, lastCol).getValues() as (
-            | string
-            | number
-            | Date
-        )[][];
+        sheet.getRange(dataStartRow, 1, numExisting, lastCol).sort([
+            { column: 1, ascending: true },
+            { column: WB_FUNNEL_DATE_COL, ascending: true },
+        ]);
     }
 
     const toYmdFromCell = (value: string | number | Date): string | null => {
@@ -201,31 +208,77 @@ function writeWBFunnelToSheetGAS(
         return null;
     };
 
-    const filteredExisting = existingRows.filter((row) => {
-        const storeCell = String(row[0] ?? '').trim();
-        const rawDate = row[WB_FUNNEL_DATE_COL - 1];
-        const ymd = rawDate !== null ? toYmdFromCell(rawDate) : null;
-        if (!storeCell || !ymd) {
-            return true;
-        }
-        if (storeCell !== targetStore) {
-            return true;
-        }
-        return ymd < fromYmd || ymd > toYmd;
-    });
-
-    const combined = [...filteredExisting, ...normalizedRows] as (string | number)[][];
+    const rowsToDelete: number[] = [];
 
     if (existingLastRow >= dataStartRow) {
         const numExisting = existingLastRow - dataStartRow + 1;
-        sheet.getRange(dataStartRow, 1, numExisting, lastCol).clearContent();
-    }
-
-    if (combined.length > 0) {
-        sheet.getRange(dataStartRow, 1, combined.length, lastCol).setValues(combined);
+        const colStore = sheet.getRange(dataStartRow, 1, numExisting, 1).getValues() as (string | number | Date)[][];
+        const colDate = sheet.getRange(dataStartRow, WB_FUNNEL_DATE_COL, numExisting, 1).getValues() as (
+            | string
+            | number
+            | Date
+        )[][];
+        for (let i = 0; i < numExisting; i++) {
+            const storeCell = String(colStore[i][0] ?? '').trim();
+            const rawDate = colDate[i][0];
+            const ymd = rawDate !== null && rawDate !== undefined ? toYmdFromCell(rawDate) : null;
+            if (!storeCell || !ymd || storeCell !== targetStore) {
+                continue;
+            }
+            if (ymd >= fromYmd && ymd <= toYmd) {
+                rowsToDelete.push(dataStartRow + i);
+            }
+        }
     }
 
     const Logger = (globalThis as { Logger?: { log: (message: string) => void } }).Logger;
+
+    if (rowsToDelete.length === 0) {
+        if (Logger) {
+            Logger.log(
+                `📋 Данных за период ${fromYmd}–${toYmd} в листе нет — дописываем в конец (${normalizedRows.length} строк)`,
+            );
+        }
+        if (headers.length > 0) {
+            sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+        }
+        if (normalizedRows.length > 0) {
+            const startRow = existingLastRow >= dataStartRow ? existingLastRow + 1 : dataStartRow;
+            sheet
+                .getRange(startRow, 1, normalizedRows.length, lastCol)
+                .setValues(normalizedRows as (string | number)[][]);
+        }
+        if (Logger) {
+            Logger.log('✅ Данные записаны в лист: ' + sheetName);
+        }
+        return;
+    }
+
+    if (Logger) {
+        Logger.log(
+            `🔄 Найдено строк за период (дубликаты): ${rowsToDelete.length}. Удаляем пачками, затем дописываем ${normalizedRows.length} новых строк.`,
+        );
+    }
+    const sortedDesc = [...rowsToDelete].sort((a, b) => b - a);
+    const runs: { startRow: number; count: number }[] = [];
+    for (let i = 0; i < sortedDesc.length; i++) {
+        const row = sortedDesc[i];
+        if (runs.length > 0 && runs[runs.length - 1].startRow === row + 1) {
+            runs[runs.length - 1].startRow = row;
+            runs[runs.length - 1].count += 1;
+        } else {
+            runs.push({ startRow: row, count: 1 });
+        }
+    }
+    for (const { startRow, count } of runs) {
+        sheet.deleteRows(startRow, count);
+    }
+
+    const startRow = existingLastRow - rowsToDelete.length + 1;
+    if (normalizedRows.length > 0) {
+        sheet.getRange(startRow, 1, normalizedRows.length, lastCol).setValues(normalizedRows as (string | number)[][]);
+    }
+
     if (Logger) {
         Logger.log('✅ Данные записаны в лист: ' + sheetName);
     }
