@@ -57,14 +57,48 @@ export async function makeApiRequestGAS<T = unknown>(
         options.payload = payload;
     }
 
-    const maxAttempts = 3;
-    const retryDelayMs = 2000;
+    const maxAttempts = 6;
+    const retryDelay5xxMs = 2000;
+    const retryDelay429DefaultMs = 10000;
+    const retryAfterMinMs = 5000;
+    const retryAfterMaxMs = 120000;
+
+    const getRetryAfterMsFromGasResponse = (
+        response: { getAllHeaders?: () => Record<string, string | string[]> },
+        defaultMs: number,
+    ): number => {
+        const getAllHeaders = response.getAllHeaders;
+        if (typeof getAllHeaders !== 'function') {
+            return defaultMs;
+        }
+        const raw = getAllHeaders.call(response);
+        const keys = Object.keys(raw);
+        const raKey = keys.find((k) => k.toLowerCase() === 'retry-after');
+        if (raKey === undefined) {
+            return defaultMs;
+        }
+        const val = raw[raKey];
+        const str = Array.isArray(val) ? val[0] : val;
+        const seconds = parseInt(String(str).trim(), 10);
+        if (Number.isNaN(seconds) || seconds < 0) {
+            return defaultMs;
+        }
+        const ms = seconds * 1000;
+        return Math.min(Math.max(ms, retryAfterMinMs), retryAfterMaxMs);
+    };
+
     let lastStatus = 0;
     let lastData: unknown = null;
     let lastText = '';
 
+    const Utilities = (globalThis as { Utilities?: { sleep: (ms: number) => void } }).Utilities;
+
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        let response: { getResponseCode: () => number; getContentText: () => string };
+        let response: {
+            getResponseCode: () => number;
+            getContentText: () => string;
+            getAllHeaders?: () => Record<string, string | string[]>;
+        };
         try {
             response = UrlFetchApp.fetch(url, options);
         } catch (error) {
@@ -81,17 +115,22 @@ export async function makeApiRequestGAS<T = unknown>(
             return lastData as T;
         }
 
+        // 429 — лимиты WB/OpenAPI per seller; ждём дольше и повторяем
+        if (attempt < maxAttempts && lastStatus === 429 && Utilities) {
+            const waitMs = getRetryAfterMsFromGasResponse(response, retryDelay429DefaultMs);
+            console.info(
+                `[${config.logPrefix}] ${path} → 429, повтор через ${waitMs / 1000} сек (попытка ${attempt}/${maxAttempts})`,
+            );
+            Utilities.sleep(waitMs);
+            continue;
+        }
+
         // 5xx — повторяем запрос (Ozon иногда отдаёт временный 500)
-        if (attempt < maxAttempts && lastStatus >= 500 && lastStatus < 600) {
-            const Utilities = (
-                globalThis as { Utilities?: { sleep: (ms: number) => void } }
-            ).Utilities;
-            if (Utilities) {
-                console.info(
-                    `[${config.logPrefix}] ${path} → ${lastStatus}, повтор через ${retryDelayMs / 1000} сек (попытка ${attempt}/${maxAttempts})`,
-                );
-                Utilities.sleep(retryDelayMs);
-            }
+        if (attempt < maxAttempts && lastStatus >= 500 && lastStatus < 600 && Utilities) {
+            console.info(
+                `[${config.logPrefix}] ${path} → ${lastStatus}, повтор через ${retryDelay5xxMs / 1000} сек (попытка ${attempt}/${maxAttempts})`,
+            );
+            Utilities.sleep(retryDelay5xxMs);
             continue;
         }
 

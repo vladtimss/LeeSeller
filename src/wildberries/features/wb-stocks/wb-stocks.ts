@@ -9,12 +9,13 @@ import {
     getWBStocksFilePath,
     extractCsvFromZip,
     sleepMs,
+    WB_STOCKS_DOWNLOAD_INTERVAL_MS,
     WB_STOCKS_REPORT_REQUEST_INTERVAL_MS,
 } from './wb-stocks.helpers';
 import { getRuntimeEnvironment } from '../../../common/helpers/runtime/runtime-env.helper';
 import {
     createStockHistoryReport,
-    waitForStockReportReady,
+    waitForBothStockReportsReady,
     downloadStockReportFile,
 } from '../../services/wb-api-service';
 import { StockHistoryReportRequest } from './wb-stocks.types';
@@ -69,18 +70,17 @@ export async function wbStocksByStore(
         await sleepMs(WB_STOCKS_REPORT_REQUEST_INTERVAL_MS);
         await createStockHistoryReport(storeIdentifier, request28);
 
-        // 3. Ожидаем готовности обоих отчётов
-        await Promise.all([
-            waitForStockReportReady(storeIdentifier, reportId7),
-            waitForStockReportReady(storeIdentifier, reportId28),
-        ]);
+        // 3. Ожидаем готовности обоих отчётов (один GET списка за такт — меньше 429 per seller)
+        await waitForBothStockReportsReady(storeIdentifier, reportId7, reportId28);
 
-        // 4. Скачиваем оба отчёта и извлекаем CSV
+        // 4. Скачиваем отчёты последовательно с паузой (параллель — 504; подряд без паузы — 429)
         logger.info('📥 Скачивание отчётов...');
-        const [zipBuffer7, zipBuffer28] = await Promise.all([
-            downloadStockReportFile(storeIdentifier, reportId7),
-            downloadStockReportFile(storeIdentifier, reportId28),
-        ]);
+        const zipBuffer7 = await downloadStockReportFile(storeIdentifier, reportId7);
+        logger.info(
+            '⏳ Ожидание ' + WB_STOCKS_DOWNLOAD_INTERVAL_MS / 1000 + ' сек перед вторым скачиванием (лимит API)...',
+        );
+        await sleepMs(WB_STOCKS_DOWNLOAD_INTERVAL_MS);
+        const zipBuffer28 = await downloadStockReportFile(storeIdentifier, reportId28);
 
         logger.info('📦 Извлечение CSV из ZIP...');
         const [csvContent7, csvContent28] = await Promise.all([

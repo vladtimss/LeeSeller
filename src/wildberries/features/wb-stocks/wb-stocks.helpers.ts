@@ -59,6 +59,9 @@ export function getPeriod(selectedPeriod?: SelectedPeriod): SelectedPeriod {
 /** Интервал между запросами на создание отчётов (лимит API: 3 запроса / 1 мин, интервал 20 сек). */
 export const WB_STOCKS_REPORT_REQUEST_INTERVAL_MS = 20000;
 
+/** Пауза между последовательными скачиваниями ZIP (меньше нагрузки на лимитер, чем подряд). */
+export const WB_STOCKS_DOWNLOAD_INTERVAL_MS = 10000;
+
 /**
  * Период за 28 дней (конец = вчера по МСК), для второго отчёта OrdersCount/OrdersSum за 28 дней.
  * @param selectedPeriod - Опциональный период; если передан, end берётся из него, start = end - 27 дней

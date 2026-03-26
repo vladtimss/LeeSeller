@@ -7,6 +7,7 @@ import {
     SalesFunnelProductsResponse,
 } from '../features/wb-funnel/wb-funnel.types';
 import {
+    ApiReportItem,
     CreateReportResponse,
     ReportStatus,
     ReportStatusResponse,
@@ -111,6 +112,31 @@ export async function createStockHistoryReport(
 }
 
 /**
+ * Интервал между опросами списка отчётов (реже — меньше 429 per seller).
+ * Один GET за такт уже снижает нагрузку вдвое vs два параллельных wait.
+ */
+const STOCK_REPORT_POLL_INTERVAL_MS = 12000;
+/**
+ * Максимум опросов: суммарный sleep ограничен с запасом под лимит GAS ~6 мин на весь run
+ * (создание отчётов, скачивание ZIP, запись в таблицу).
+ */
+const STOCK_REPORT_POLL_MAX_ATTEMPTS = 16;
+
+const NM_REPORT_DOWNLOADS_PATH = '/api/v2/nm-report/downloads';
+
+/**
+ * Один GET списка задач nm-report (используем и для одного, и для двух отчётов за такт).
+ */
+async function fetchNmReportDownloadsList(storeIdentifier: WBStoreIdentifier): Promise<ApiReportItem[]> {
+    const token = getWBStoreToken(storeIdentifier);
+    const config = getWBAnalyticsConfig(token);
+    const response = await makeApiRequest<ReportsListResponse>(config, NM_REPORT_DOWNLOADS_PATH, {
+        method: 'GET',
+    });
+    return response.data || [];
+}
+
+/**
  * Преобразует статус из API в нормализованный статус
  */
 function normalizeReportStatus(apiStatus: string): ReportStatus {
@@ -141,16 +167,7 @@ export async function getStockReportStatus(
     storeIdentifier: WBStoreIdentifier,
     reportId: string,
 ): Promise<ReportStatusResponse> {
-    const token = getWBStoreToken(storeIdentifier);
-    const config = getWBAnalyticsConfig(token);
-    const path = '/api/v2/nm-report/downloads';
-
-    const response = await makeApiRequest<ReportsListResponse>(config, path, {
-        method: 'GET',
-    });
-
-    // Извлекаем массив отчетов из поля data
-    const reports = response.data || [];
+    const reports = await fetchNmReportDownloadsList(storeIdentifier);
 
     // Ищем отчет с нужным id
     const report = reports.find((r) => r.id === reportId);
@@ -168,6 +185,82 @@ export async function getStockReportStatus(
         id: report.id,
         status: normalizedStatus,
     };
+}
+
+/**
+ * Ожидает готовности двух отчётов об остатках, делая один GET списка за итерацию (вдвое меньше нагрузки на лимит WB per seller).
+ */
+export async function waitForBothStockReportsReady(
+    storeIdentifier: WBStoreIdentifier,
+    reportIdA: string,
+    reportIdB: string,
+): Promise<void> {
+    const delayMs = STOCK_REPORT_POLL_INTERVAL_MS;
+    const maxAttempts = STOCK_REPORT_POLL_MAX_ATTEMPTS;
+
+    logger.info(
+        '⏳ Ожидание готовности двух отчётов (один запрос статуса за такт, интервал ' +
+            delayMs / 1000 +
+            ' сек, до ' +
+            maxAttempts +
+            ' попыток)...',
+    );
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        logger.info('⏳ Попытка ' + attempt + '/' + maxAttempts + ': пауза ' + delayMs / 1000 + ' сек...');
+        await sleep(delayMs);
+
+        logger.info('🔍 Проверка статуса обоих отчётов одним запросом к API...');
+        const reports = await fetchNmReportDownloadsList(storeIdentifier);
+        const reportA = reports.find((r) => r.id === reportIdA);
+        const reportB = reports.find((r) => r.id === reportIdB);
+
+        if (!reportA) {
+            throw new Error('Отчет с id ' + reportIdA + ' не найден в списке отчетов');
+        }
+        if (!reportB) {
+            throw new Error('Отчет с id ' + reportIdB + ' не найден в списке отчетов');
+        }
+
+        const statusA = normalizeReportStatus(reportA.status);
+        const statusB = normalizeReportStatus(reportB.status);
+        logger.info(
+            '📊 Статусы: ' +
+                reportIdA +
+                ' → ' +
+                statusA +
+                ' (API: ' +
+                reportA.status +
+                '); ' +
+                reportIdB +
+                ' → ' +
+                statusB +
+                ' (API: ' +
+                reportB.status +
+                ')',
+        );
+
+        if (statusA === 'error' || statusB === 'error') {
+            throw new Error(
+                'Ошибка при генерации отчета: один из отчётов в статусе ERROR (проверьте кабинет WB).',
+            );
+        }
+
+        if (statusA === 'ready' && statusB === 'ready') {
+            logger.success('✅ Оба отчёта готовы');
+            return;
+        }
+
+        logger.info('⏳ Ещё не оба готовы (ожидаем дальше)');
+    }
+
+    throw new Error(
+        'Отчеты не готовы после ' +
+            maxAttempts +
+            ' попыток (~' +
+            Math.round((maxAttempts * delayMs) / 60000) +
+            ' мин). Возможно, WB долго генерирует отчёты — попробуйте позже.',
+    );
 }
 
 /**
@@ -194,8 +287,12 @@ export async function downloadStockReportFile(
     return response;
 }
 
+const BINARY_REQUEST_MAX_ATTEMPTS = 6;
+const BINARY_REQUEST_RETRY_DELAY_MS = 3000;
+const BINARY_REQUEST_RETRY_429_MS = 10000;
+
 /**
- * Вспомогательная функция для скачивания бинарных данных
+ * Вспомогательная функция для скачивания бинарных данных с retry при 5xx
  * В Node.js использует node-fetch, в GAS - UrlFetchApp
  */
 async function makeApiRequestBinary(config: ApiRequestConfig, path: string): Promise<ArrayBuffer> {
@@ -205,78 +302,146 @@ async function makeApiRequestBinary(config: ApiRequestConfig, path: string): Pro
     };
 
     if (isNode()) {
-        const response = await fetch(url, {
-            method: 'GET',
-            headers,
-        });
-
-        if (!response.ok) {
-            const errorText = await response.text().catch(() => '');
-            throw new Error('HTTP error! status: ' + response.status + ', body: ' + errorText);
-        }
-
-        return await response.arrayBuffer();
+        return makeApiRequestBinaryNode(url, headers, path);
     }
 
     if (isGoogleAppsScript()) {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        const UrlFetchApp = (
-            globalThis as {
-                UrlFetchApp?: {
-                    fetch: (
-                        url: string,
-                        options: Record<string, unknown>,
-                    ) => { getResponseCode: () => number; getBlob: () => { getBytes: () => number[] } };
-                };
-            }
-        ).UrlFetchApp;
-
-        if (!UrlFetchApp) {
-            throw new Error('UrlFetchApp не доступен. Убедитесь, что код запущен в Google Apps Script окружении.');
-        }
-
-        const options: Record<string, unknown> = {
-            method: 'GET',
-            headers: headers,
-            muteHttpExceptions: true,
-        };
-
-        const response = UrlFetchApp.fetch(url, options);
-        const statusCode = response.getResponseCode();
-
-        if (statusCode < 200 || statusCode >= 300) {
-            throw new Error('HTTP error! status: ' + statusCode);
-        }
-
-        const blob = response.getBlob();
-        const bytes = blob.getBytes();
-        // Конвертируем массив байтов в ArrayBuffer
-        const arrayBuffer = new ArrayBuffer(bytes.length);
-        const view = new Uint8Array(arrayBuffer);
-        for (let i = 0; i < bytes.length; i++) {
-            view[i] = bytes[i];
-        }
-        return arrayBuffer;
+        return makeApiRequestBinaryGAS(url, headers, path);
     }
 
     throw new Error('Не удалось определить окружение выполнения для makeApiRequestBinary');
 }
 
+async function makeApiRequestBinaryNode(
+    url: string,
+    headers: Record<string, string>,
+    path: string,
+): Promise<ArrayBuffer> {
+    let lastStatus = 0;
+
+    for (let attempt = 1; attempt <= BINARY_REQUEST_MAX_ATTEMPTS; attempt++) {
+        const response = await fetch(url, { method: 'GET', headers });
+        lastStatus = response.status;
+
+        if (response.ok) {
+            return await response.arrayBuffer();
+        }
+
+        if (attempt < BINARY_REQUEST_MAX_ATTEMPTS && lastStatus === 429) {
+            logger.info(
+                '⚠️ ' + path + ' → 429, повтор через ' + BINARY_REQUEST_RETRY_429_MS / 1000 +
+                ' сек (попытка ' + attempt + '/' + BINARY_REQUEST_MAX_ATTEMPTS + ')',
+            );
+            await new Promise((resolve) => setTimeout(resolve, BINARY_REQUEST_RETRY_429_MS));
+            continue;
+        }
+
+        if (attempt < BINARY_REQUEST_MAX_ATTEMPTS && lastStatus >= 500 && lastStatus < 600) {
+            logger.info(
+                '⚠️ ' + path + ' → ' + lastStatus +
+                ', повтор через ' + BINARY_REQUEST_RETRY_DELAY_MS / 1000 +
+                ' сек (попытка ' + attempt + '/' + BINARY_REQUEST_MAX_ATTEMPTS + ')',
+            );
+            await new Promise((resolve) => setTimeout(resolve, BINARY_REQUEST_RETRY_DELAY_MS));
+            continue;
+        }
+
+        const errorText = await response.text().catch(() => '');
+        throw new Error('HTTP error! status: ' + lastStatus + ', body: ' + errorText);
+    }
+
+    throw new Error('HTTP error! status: ' + lastStatus + ' после ' + BINARY_REQUEST_MAX_ATTEMPTS + ' попыток');
+}
+
+async function makeApiRequestBinaryGAS(
+    url: string,
+    headers: Record<string, string>,
+    path: string,
+): Promise<ArrayBuffer> {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const UrlFetchApp = (
+        globalThis as {
+            UrlFetchApp?: {
+                fetch: (
+                    url: string,
+                    options: Record<string, unknown>,
+                ) => { getResponseCode: () => number; getBlob: () => { getBytes: () => number[] } };
+            };
+        }
+    ).UrlFetchApp;
+
+    if (!UrlFetchApp) {
+        throw new Error('UrlFetchApp не доступен. Убедитесь, что код запущен в Google Apps Script окружении.');
+    }
+
+    const options: Record<string, unknown> = {
+        method: 'GET',
+        headers: headers,
+        muteHttpExceptions: true,
+    };
+
+    let lastStatus = 0;
+
+    for (let attempt = 1; attempt <= BINARY_REQUEST_MAX_ATTEMPTS; attempt++) {
+        const response = UrlFetchApp.fetch(url, options);
+        lastStatus = response.getResponseCode();
+
+        if (lastStatus >= 200 && lastStatus < 300) {
+            const blob = response.getBlob();
+            const bytes = blob.getBytes();
+            const arrayBuffer = new ArrayBuffer(bytes.length);
+            const view = new Uint8Array(arrayBuffer);
+            for (let i = 0; i < bytes.length; i++) {
+                view[i] = bytes[i];
+            }
+            return arrayBuffer;
+        }
+
+        if (attempt < BINARY_REQUEST_MAX_ATTEMPTS && lastStatus === 429) {
+            const Utilities = (
+                globalThis as { Utilities?: { sleep: (ms: number) => void } }
+            ).Utilities;
+            if (Utilities) {
+                logger.info(
+                    '⚠️ ' + path + ' → 429, повтор через ' + BINARY_REQUEST_RETRY_429_MS / 1000 +
+                    ' сек (попытка ' + attempt + '/' + BINARY_REQUEST_MAX_ATTEMPTS + ')',
+                );
+                Utilities.sleep(BINARY_REQUEST_RETRY_429_MS);
+            }
+            continue;
+        }
+
+        if (attempt < BINARY_REQUEST_MAX_ATTEMPTS && lastStatus >= 500 && lastStatus < 600) {
+            const Utilities = (
+                globalThis as { Utilities?: { sleep: (ms: number) => void } }
+            ).Utilities;
+            if (Utilities) {
+                logger.info(
+                    '⚠️ ' + path + ' → ' + lastStatus +
+                    ', повтор через ' + BINARY_REQUEST_RETRY_DELAY_MS / 1000 +
+                    ' сек (попытка ' + attempt + '/' + BINARY_REQUEST_MAX_ATTEMPTS + ')',
+                );
+                Utilities.sleep(BINARY_REQUEST_RETRY_DELAY_MS);
+            }
+            continue;
+        }
+
+        throw new Error('HTTP error! status: ' + lastStatus);
+    }
+
+    throw new Error('HTTP error! status: ' + lastStatus + ' после ' + BINARY_REQUEST_MAX_ATTEMPTS + ' попыток');
+}
+
 /**
- * Ожидает готовности отчета об остатках
- * Проверяет статус отчета с интервалом 5 секунд, максимум 5 попыток
- * Первая проверка через 5 секунд после создания задачи
- * @param storeIdentifier - Идентификатор магазина WB
- * @param reportId - Идентификатор задачи на генерацию отчета
- * @returns Промис с информацией о статусе отчета (когда статус 'ready')
- * @throws Error если отчет не готов после 5 попыток или произошла ошибка
+ * Ожидает готовности одного отчёта (для сценариев вне пары 7+28 дней).
+ * Интервал и число попыток совпадают с {@link waitForBothStockReportsReady}.
  */
 export async function waitForStockReportReady(
     storeIdentifier: WBStoreIdentifier,
     reportId: string,
 ): Promise<ReportStatusResponse> {
-    const maxAttempts = 5;
-    const delayMs = 5000; // 5 секунд
+    const maxAttempts = STOCK_REPORT_POLL_MAX_ATTEMPTS;
+    const delayMs = STOCK_REPORT_POLL_INTERVAL_MS;
 
     logger.info(
         '⏳ Ожидание готовности отчета ' +
@@ -289,7 +454,6 @@ export async function waitForStockReportReady(
     );
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        // Ждем перед каждой проверкой (включая первую - через 5 сек после создания задачи)
         logger.info('⏳ Попытка ' + attempt + '/' + maxAttempts + ': ожидание ' + delayMs / 1000 + ' сек...');
         await sleep(delayMs);
 
@@ -310,7 +474,11 @@ export async function waitForStockReportReady(
     }
 
     throw new Error(
-        'Отчет не готов после ' + maxAttempts + ' попыток. Возможно, требуется больше времени для генерации.',
+        'Отчет не готов после ' +
+            maxAttempts +
+            ' попыток (~' +
+            Math.round((maxAttempts * delayMs) / 60000) +
+            ' мин). Возможно, требуется больше времени для генерации.',
     );
 }
 
